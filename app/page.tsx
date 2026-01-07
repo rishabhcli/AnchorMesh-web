@@ -75,9 +75,16 @@ function Navbar() {
           <a href="#technical" className="hover:text-foreground transition-colors">Technical</a>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-xs px-3 py-1.5 rounded-full bg-card border border-card-border text-muted">
+          <span className="hidden sm:inline text-xs px-3 py-1.5 rounded-full bg-card border border-card-border text-muted">
             Alameda Hackathon 2025
           </span>
+          <a
+            href="/admin/login"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-card-border text-sm font-medium hover:bg-card-border/50 transition-colors"
+          >
+            <Shield className="w-4 h-4" />
+            <span className="hidden sm:inline">Admin</span>
+          </a>
         </div>
       </div>
     </motion.nav>
