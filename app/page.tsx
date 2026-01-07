@@ -194,7 +194,7 @@ function HeroSection() {
             <span className="text-card-border">|</span>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted">App Size</span>
-              <span className="text-foreground font-semibold">&lt; 1GB</span>
+              <span className="text-foreground font-semibold">&lt; 15MB</span>
             </div>
           </div>
         </motion.div>
