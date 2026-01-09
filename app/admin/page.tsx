@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Radio,
@@ -11,8 +10,6 @@ import {
   MapPin,
   Signal,
   Battery,
-  Wifi,
-  WifiOff,
   Clock,
   TrendingUp,
   TrendingDown,
@@ -20,7 +17,6 @@ import {
   Settings,
   LogOut,
   Menu,
-  X,
   ChevronRight,
   RefreshCw,
   Shield,
@@ -29,56 +25,41 @@ import {
   Zap,
   CheckCircle,
   AlertCircle,
-  Heart,
   Map,
   BarChart3,
-  PieChart,
   Download,
   Filter,
+  Loader2,
 } from "lucide-react";
+import { useActiveAlerts, useAlertStats, useActiveDevices, acknowledgeAlert, resolveAlert } from "@/hooks/useAlerts";
+import { useRequireAuth } from "@/hooks/useAuth";
+import { SOSAlert, AlertStats, parseLocation, getPriorityStatus, timeAgo, getEmergencyLabel } from "@/lib/supabase";
+import dynamic from 'next/dynamic';
+import { LayoutGrid, MapIcon, Split } from 'lucide-react';
 
-// Mock data for the dashboard
-const mockStats = {
-  activeNodes: 12847,
-  activeSOSSignals: 23,
-  messagesRelayed: 458920,
-  avgResponseTime: "4.2 min",
-  networkCoverage: "94.7%",
-  batteryEfficiency: "98.2%",
-};
+// Dynamic import for map component to avoid SSR issues
+const AlertMap = dynamic(() => import('@/components/AlertMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[500px] bg-card border border-card-border rounded-2xl flex items-center justify-center">
+      <Loader2 className="w-6 h-6 animate-spin text-accent" />
+    </div>
+  ),
+});
 
-const mockSOSSignals = [
-  { id: "SOS-001", status: "critical", location: "34.0522, -118.2437", user: "User #8734", time: "2 min ago", hops: 3 },
-  { id: "SOS-002", status: "critical", location: "34.0195, -118.4912", user: "User #2391", time: "5 min ago", hops: 7 },
-  { id: "SOS-003", status: "injured", location: "34.0689, -118.4452", user: "User #5672", time: "8 min ago", hops: 2 },
-  { id: "SOS-004", status: "injured", location: "33.9425, -118.4081", user: "User #9103", time: "12 min ago", hops: 5 },
-  { id: "SOS-005", status: "critical", location: "34.1478, -118.1445", user: "User #4456", time: "15 min ago", hops: 11 },
-];
+type ViewMode = 'table' | 'map' | 'split';
 
-const mockRecentActivity = [
-  { type: "sos_received", message: "New SOS signal received from Zone A-7", time: "1 min ago" },
-  { type: "node_joined", message: "847 new nodes joined the mesh network", time: "3 min ago" },
-  { type: "sos_resolved", message: "SOS #4521 marked as rescued", time: "7 min ago" },
-  { type: "alert", message: "High traffic detected in Zone B-3", time: "12 min ago" },
-  { type: "system", message: "DEFCON level changed to 3 for LA County", time: "18 min ago" },
-  { type: "sos_received", message: "New SOS signal received from Zone C-2", time: "23 min ago" },
-];
-
-const mockZoneData = [
-  { zone: "Zone A", nodes: 3421, sos: 8, status: "active" },
-  { zone: "Zone B", nodes: 2847, sos: 5, status: "active" },
-  { zone: "Zone C", nodes: 1923, sos: 3, status: "warning" },
-  { zone: "Zone D", nodes: 2156, sos: 4, status: "active" },
-  { zone: "Zone E", nodes: 2500, sos: 3, status: "active" },
-];
-
-function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: boolean) => void }) {
-  const router = useRouter();
-
-  const handleLogout = () => {
-    localStorage.removeItem("aether_admin_auth");
-    router.push("/admin/login");
-  };
+function Sidebar({
+  isOpen,
+  setIsOpen,
+  userEmail,
+  onSignOut,
+}: {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  userEmail: string | null;
+  onSignOut: () => void;
+}) {
 
   const navItems = [
     { icon: BarChart3, label: "Dashboard", active: true },
@@ -144,12 +125,12 @@ function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: boo
                 <Shield className="w-5 h-5 text-accent" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Admin</p>
-                <p className="text-xs text-muted truncate">admin@aethersos.com</p>
+                <p className="text-sm font-medium truncate">Responder</p>
+                <p className="text-xs text-muted truncate">{userEmail || 'Unknown'}</p>
               </div>
             </div>
             <button
-              onClick={handleLogout}
+              onClick={onSignOut}
               className="w-full flex items-center gap-3 px-4 py-3 mt-2 rounded-xl text-sm text-critical hover:bg-critical/10 transition-colors"
             >
               <LogOut className="w-5 h-5" />
@@ -169,6 +150,7 @@ function StatsCard({
   changeType,
   icon: Icon,
   iconColor,
+  index = 0,
 }: {
   title: string;
   value: string | number;
@@ -176,20 +158,23 @@ function StatsCard({
   changeType?: "up" | "down" | "neutral";
   icon: React.ElementType;
   iconColor: string;
+  index?: number;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-card border border-card-border rounded-2xl p-6"
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: index * 0.05, duration: 0.3 }}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+      className="bg-card border border-card-border rounded-2xl p-6 card-hover group cursor-default"
     >
       <div className="flex items-start justify-between mb-4">
-        <div className={`w-12 h-12 rounded-xl ${iconColor} flex items-center justify-center`}>
+        <div className={`w-12 h-12 rounded-xl ${iconColor} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
           <Icon className="w-6 h-6 text-white" />
         </div>
         {change && (
           <div
-            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+            className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${
               changeType === "up"
                 ? "bg-safe/20 text-safe"
                 : changeType === "down"
@@ -206,22 +191,57 @@ function StatsCard({
           </div>
         )}
       </div>
-      <p className="text-2xl font-bold mb-1">{value}</p>
-      <p className="text-sm text-muted">{title}</p>
+      <motion.p
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: index * 0.05 + 0.2, type: "spring", stiffness: 200 }}
+        className="text-3xl font-bold mb-1 tracking-tight"
+      >
+        {value}
+      </motion.p>
+      <p className="text-sm text-muted font-medium">{title}</p>
     </motion.div>
   );
 }
 
-function SOSTable() {
-  const getStatusColor = (status: string) => {
-    switch (status) {
+function SOSTable({ alerts, loading, onAcknowledge, onResolve }: {
+  alerts: SOSAlert[];
+  loading: boolean;
+  onAcknowledge: (id: string) => void;
+  onResolve: (id: string) => void;
+}) {
+  const getStatusColor = (priority: string) => {
+    switch (priority) {
       case "critical":
-        return "bg-critical text-white";
-      case "injured":
+        return "bg-critical text-white shadow-lg shadow-critical/30";
+      case "high":
         return "bg-warning text-black";
+      case "medium":
+        return "bg-orange-500 text-white";
       default:
         return "bg-muted text-white";
     }
+  };
+
+  const getRowClass = (priority: string) => {
+    switch (priority) {
+      case "critical":
+        return "critical-row priority-critical";
+      case "high":
+        return "priority-high";
+      case "medium":
+        return "priority-medium";
+      default:
+        return "priority-low";
+    }
+  };
+
+  const formatLocation = (alert: SOSAlert) => {
+    const loc = parseLocation(alert.location);
+    if (loc) {
+      return `${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}`;
+    }
+    return "Unknown";
   };
 
   return (
@@ -229,87 +249,139 @@ function SOSTable() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className="bg-card border border-card-border rounded-2xl overflow-hidden"
+      className="bg-card border border-card-border rounded-2xl overflow-hidden shadow-xl"
     >
       <div className="p-6 border-b border-card-border flex items-center justify-between">
         <div>
-          <h3 className="font-semibold">Active SOS Signals</h3>
-          <p className="text-sm text-muted">Real-time emergency broadcasts</p>
+          <div className="flex items-center gap-3">
+            <h3 className="font-semibold text-lg">Active SOS Signals</h3>
+            {alerts.length > 0 && (
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-critical/20 text-critical text-xs font-medium">
+                <span className="w-2 h-2 rounded-full bg-critical animate-pulse" />
+                {alerts.length} Active
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-muted mt-1">Real-time emergency broadcasts from mesh network</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="p-2 rounded-lg hover:bg-card-border/50 transition-colors">
+          <button className="p-2.5 rounded-xl hover:bg-card-border/50 transition-colors border border-transparent hover:border-card-border">
             <Filter className="w-4 h-4 text-muted" />
           </button>
-          <button className="p-2 rounded-lg hover:bg-card-border/50 transition-colors">
+          <button className="p-2.5 rounded-xl hover:bg-card-border/50 transition-colors border border-transparent hover:border-card-border">
             <Download className="w-4 h-4 text-muted" />
           </button>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-card-border text-left text-sm text-muted">
-              <th className="px-6 py-4 font-medium">Signal ID</th>
-              <th className="px-6 py-4 font-medium">Status</th>
-              <th className="px-6 py-4 font-medium">Location</th>
-              <th className="px-6 py-4 font-medium">User</th>
-              <th className="px-6 py-4 font-medium">Time</th>
-              <th className="px-6 py-4 font-medium">Hops</th>
-              <th className="px-6 py-4 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mockSOSSignals.map((signal, index) => (
-              <tr
-                key={signal.id}
-                className="border-b border-card-border/50 hover:bg-card-border/20 transition-colors"
-              >
-                <td className="px-6 py-4">
-                  <span className="font-mono text-sm">{signal.id}</span>
-                </td>
-                <td className="px-6 py-4">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(
-                      signal.status
-                    )}`}
-                  >
-                    {signal.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-muted" />
-                    <span className="font-mono text-sm">{signal.location}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-sm">{signal.user}</td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2 text-sm text-muted">
-                    <Clock className="w-4 h-4" />
-                    {signal.time}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-1">
-                    <Signal className="w-4 h-4 text-accent" />
-                    <span className="text-sm">{signal.hops}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <button className="px-3 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-medium hover:bg-accent/20 transition-colors">
-                    View Details
-                  </button>
-                </td>
+      <div className="overflow-x-auto custom-scrollbar">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-card-border rounded-full" />
+              <div className="absolute inset-0 w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+            </div>
+            <p className="mt-4 text-muted font-medium">Loading alerts...</p>
+          </div>
+        ) : alerts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted">
+            <div className="w-20 h-20 rounded-full bg-safe/10 flex items-center justify-center mb-4">
+              <CheckCircle className="w-10 h-10 text-safe" />
+            </div>
+            <p className="text-xl font-semibold text-foreground">No Active Emergencies</p>
+            <p className="text-sm mt-1">All clear - no SOS signals in the network</p>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-card-border text-left text-xs text-muted uppercase tracking-wider">
+                <th className="px-6 py-4 font-semibold">Signal ID</th>
+                <th className="px-6 py-4 font-semibold">Type</th>
+                <th className="px-6 py-4 font-semibold">Location</th>
+                <th className="px-6 py-4 font-semibold">Device</th>
+                <th className="px-6 py-4 font-semibold">Time</th>
+                <th className="px-6 py-4 font-semibold">Hops</th>
+                <th className="px-6 py-4 font-semibold">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {alerts.slice(0, 10).map((alert, index) => (
+                <motion.tr
+                  key={alert.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className={`border-b border-card-border/50 hover:bg-card-border/30 transition-all duration-200 ${getRowClass(alert.priority)}`}
+                >
+                  <td className="px-6 py-4">
+                    <span className="font-mono text-sm bg-background px-2 py-1 rounded">{alert.message_id.slice(0, 12)}...</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${getStatusColor(alert.priority)}`}
+                    >
+                      {alert.priority === 'critical' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+                      {getEmergencyLabel(alert.emergency_type)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2 group">
+                      <MapPin className="w-4 h-4 text-accent group-hover:scale-110 transition-transform" />
+                      <span className="font-mono text-sm">{formatLocation(alert)}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-sm font-mono bg-card-border/50 px-2 py-1 rounded">
+                      {alert.originator_device_id.slice(0, 8)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2 text-sm text-muted">
+                      <Clock className="w-4 h-4" />
+                      <span className="font-medium">{timeAgo(alert.originated_at)}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-1.5">
+                      <Signal className="w-4 h-4 text-accent" />
+                      <span className="text-sm font-semibold">{alert.hop_count}</span>
+                      {alert.delivered_via === 'mesh_relay' && (
+                        <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent">relay</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      {alert.status === 'active' && (
+                        <button
+                          onClick={() => onAcknowledge(alert.id)}
+                          className="px-4 py-2 rounded-lg bg-accent text-white text-xs font-semibold hover:bg-accent/90 transition-all hover:shadow-lg hover:shadow-accent/30 btn-glow"
+                        >
+                          Acknowledge
+                        </button>
+                      )}
+                      {alert.status === 'acknowledged' && (
+                        <button
+                          onClick={() => onResolve(alert.id)}
+                          className="px-4 py-2 rounded-lg bg-safe text-white text-xs font-semibold hover:bg-safe/90 transition-all hover:shadow-lg hover:shadow-safe/30 btn-glow"
+                        >
+                          Resolve
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      <div className="p-4 border-t border-card-border flex items-center justify-between">
-        <p className="text-sm text-muted">Showing 5 of 23 active signals</p>
-        <button className="text-sm text-accent hover:underline flex items-center gap-1">
+      <div className="p-4 border-t border-card-border flex items-center justify-between bg-background/50">
+        <p className="text-sm text-muted">
+          {loading ? 'Loading...' : `Showing ${Math.min(alerts.length, 10)} of ${alerts.length} active signals`}
+        </p>
+        <button className="text-sm text-accent hover:text-accent/80 flex items-center gap-1 font-medium transition-colors">
           View all signals <ChevronRight className="w-4 h-4" />
         </button>
       </div>
@@ -317,53 +389,97 @@ function SOSTable() {
   );
 }
 
-function ActivityFeed() {
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case "sos_received":
-        return <AlertTriangle className="w-4 h-4 text-critical" />;
-      case "sos_resolved":
-        return <CheckCircle className="w-4 h-4 text-safe" />;
-      case "node_joined":
-        return <Users className="w-4 h-4 text-accent" />;
-      case "alert":
-        return <AlertCircle className="w-4 h-4 text-warning" />;
-      default:
-        return <Activity className="w-4 h-4 text-muted" />;
+function ActivityFeed({ alerts }: { alerts: SOSAlert[] }) {
+  const getActivityIcon = (status: string, priority: string) => {
+    if (status === 'resolved') {
+      return <CheckCircle className="w-4 h-4 text-safe" />;
     }
+    if (status === 'acknowledged') {
+      return <Activity className="w-4 h-4 text-warning" />;
+    }
+    if (priority === 'critical') {
+      return <AlertTriangle className="w-4 h-4 text-critical" />;
+    }
+    return <AlertCircle className="w-4 h-4 text-warning" />;
   };
+
+  const getIconBg = (status: string, priority: string) => {
+    if (status === 'resolved') return 'bg-safe/10';
+    if (status === 'acknowledged') return 'bg-warning/10';
+    if (priority === 'critical') return 'bg-critical/10';
+    return 'bg-warning/10';
+  };
+
+  const getActivityMessage = (alert: SOSAlert) => {
+    const type = getEmergencyLabel(alert.emergency_type);
+    const deviceId = alert.originator_device_id.slice(0, 8);
+    if (alert.status === 'resolved') {
+      return `${type} alert from ${deviceId} resolved`;
+    }
+    if (alert.status === 'acknowledged') {
+      return `${type} alert from ${deviceId} acknowledged`;
+    }
+    if (alert.delivered_via === 'mesh_relay') {
+      return `${type} alert relayed (${alert.hop_count} hops) from ${deviceId}`;
+    }
+    return `New ${type} alert received from device ${deviceId}`;
+  };
+
+  // Sort alerts by received_at to show most recent first
+  const recentAlerts = [...alerts]
+    .sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime())
+    .slice(0, 10);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className="bg-card border border-card-border rounded-2xl"
+      className="bg-card border border-card-border rounded-2xl shadow-xl"
     >
       <div className="p-6 border-b border-card-border">
-        <h3 className="font-semibold">Recent Activity</h3>
-        <p className="text-sm text-muted">Latest network events</p>
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-lg">Recent Activity</h3>
+          <span className="flex items-center gap-1 text-xs text-safe">
+            <span className="w-2 h-2 rounded-full bg-safe animate-pulse" />
+            Live
+          </span>
+        </div>
+        <p className="text-sm text-muted mt-1">Latest alerts from mesh network</p>
       </div>
 
-      <div className="p-4 space-y-4 max-h-[400px] overflow-y-auto">
-        {mockRecentActivity.map((activity, index) => (
-          <div
-            key={index}
-            className="flex items-start gap-3 p-3 rounded-xl hover:bg-card-border/30 transition-colors"
-          >
-            <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center flex-shrink-0">
-              {getActivityIcon(activity.type)}
+      <div className="p-4 space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+        {recentAlerts.length === 0 ? (
+          <div className="text-center py-12 text-muted">
+            <div className="w-16 h-16 rounded-full bg-card-border/30 flex items-center justify-center mx-auto mb-4">
+              <Activity className="w-8 h-8 opacity-50" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm">{activity.message}</p>
-              <p className="text-xs text-muted mt-1">{activity.time}</p>
-            </div>
+            <p className="font-medium">No recent activity</p>
+            <p className="text-xs mt-1">Activity will appear here in real-time</p>
           </div>
-        ))}
+        ) : (
+          recentAlerts.map((alert, index) => (
+            <motion.div
+              key={alert.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.03 }}
+              className="flex items-start gap-3 p-3 rounded-xl hover:bg-card-border/30 transition-all cursor-pointer group"
+            >
+              <div className={`w-9 h-9 rounded-xl ${getIconBg(alert.status, alert.priority)} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                {getActivityIcon(alert.status, alert.priority)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium leading-tight">{getActivityMessage(alert)}</p>
+                <p className="text-xs text-muted mt-1.5">{timeAgo(alert.received_at)}</p>
+              </div>
+            </motion.div>
+          ))
+        )}
       </div>
 
       <div className="p-4 border-t border-card-border">
-        <button className="w-full text-sm text-accent hover:underline">
+        <button className="w-full py-2 text-sm text-accent hover:bg-accent/10 rounded-lg transition-colors font-medium">
           View all activity
         </button>
       </div>
@@ -371,7 +487,44 @@ function ActivityFeed() {
   );
 }
 
-function NetworkZones() {
+function NetworkZones({ stats, alerts }: { stats: AlertStats | null; alerts: SOSAlert[] }) {
+  // Generate zone data from alerts by emergency type
+  const alertsByType = stats?.alerts_by_type || {};
+  const alertsByPriority = stats?.alerts_by_priority || {};
+
+  const zones = [
+    {
+      zone: "Medical Emergencies",
+      count: alertsByType['medical'] || 0,
+      status: (alertsByType['medical'] || 0) > 0 ? "active" : "clear",
+      color: "bg-critical",
+    },
+    {
+      zone: "Natural Disasters",
+      count: alertsByType['natural_disaster'] || 0,
+      status: (alertsByType['natural_disaster'] || 0) > 0 ? "active" : "clear",
+      color: "bg-warning",
+    },
+    {
+      zone: "Critical Priority",
+      count: alertsByPriority['critical'] || 0,
+      status: (alertsByPriority['critical'] || 0) > 0 ? "active" : "clear",
+      color: "bg-critical",
+    },
+    {
+      zone: "High Priority",
+      count: alertsByPriority['high'] || 0,
+      status: (alertsByPriority['high'] || 0) > 0 ? "warning" : "clear",
+      color: "bg-warning",
+    },
+    {
+      zone: "Other Alerts",
+      count: alertsByType['other'] || 0,
+      status: (alertsByType['other'] || 0) > 0 ? "active" : "clear",
+      color: "bg-accent",
+    },
+  ];
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -380,12 +533,12 @@ function NetworkZones() {
       className="bg-card border border-card-border rounded-2xl"
     >
       <div className="p-6 border-b border-card-border">
-        <h3 className="font-semibold">Network Zones</h3>
-        <p className="text-sm text-muted">Regional mesh network status</p>
+        <h3 className="font-semibold">Alert Categories</h3>
+        <p className="text-sm text-muted">Breakdown by type and priority</p>
       </div>
 
       <div className="p-4 space-y-3">
-        {mockZoneData.map((zone) => (
+        {zones.map((zone) => (
           <div
             key={zone.zone}
             className="flex items-center justify-between p-4 rounded-xl bg-background border border-card-border"
@@ -393,17 +546,18 @@ function NetworkZones() {
             <div className="flex items-center gap-3">
               <div
                 className={`w-3 h-3 rounded-full ${
-                  zone.status === "active" ? "bg-safe" : "bg-warning"
+                  zone.status === "active" ? zone.color : zone.status === "warning" ? "bg-warning" : "bg-safe"
                 }`}
               />
               <div>
                 <p className="font-medium text-sm">{zone.zone}</p>
-                <p className="text-xs text-muted">{zone.nodes.toLocaleString()} nodes</p>
+                <p className="text-xs text-muted capitalize">{zone.status}</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm font-semibold text-critical">{zone.sos} SOS</p>
-              <p className="text-xs text-muted capitalize">{zone.status}</p>
+              <p className={`text-sm font-semibold ${zone.count > 0 ? 'text-critical' : 'text-muted'}`}>
+                {zone.count} alerts
+              </p>
             </div>
           </div>
         ))}
@@ -457,33 +611,44 @@ function SystemHealth() {
 }
 
 export default function AdminDashboard() {
-  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Check authentication
-    const auth = localStorage.getItem("aether_admin_auth");
-    if (!auth) {
-      router.push("/admin/login");
-      return;
-    }
+  // Auth hook - redirects to login if not authenticated
+  const { user, loading: authLoading, signOut } = useRequireAuth();
 
+  // Fetch real data from Supabase
+  const { alerts, loading: alertsLoading, refresh: refreshAlerts } = useActiveAlerts();
+  const { stats, loading: statsLoading, refresh: refreshStats } = useAlertStats();
+  const { devices } = useActiveDevices();
+
+  // Handle alert actions
+  const handleAcknowledge = async (alertId: string) => {
     try {
-      const authData = JSON.parse(auth);
-      if (!authData.authenticated) {
-        router.push("/admin/login");
-        return;
-      }
-    } catch {
-      router.push("/admin/login");
-      return;
+      await acknowledgeAlert(alertId, user?.id || 'admin');
+      refreshAlerts();
+    } catch (error) {
+      console.error('Failed to acknowledge alert:', error);
     }
+  };
 
-    setIsLoading(false);
-  }, [router]);
+  const handleResolve = async (alertId: string) => {
+    try {
+      await resolveAlert(alertId, 'Resolved by admin');
+      refreshAlerts();
+    } catch (error) {
+      console.error('Failed to resolve alert:', error);
+    }
+  };
 
-  if (isLoading) {
+  const handleRefresh = () => {
+    refreshAlerts();
+    refreshStats();
+  };
+
+  // Show loading while checking auth
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -496,7 +661,12 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+      <Sidebar
+        isOpen={sidebarOpen}
+        setIsOpen={setSidebarOpen}
+        userEmail={user?.email || null}
+        onSignOut={signOut}
+      />
 
       {/* Main content */}
       <main className="lg:ml-64">
@@ -512,17 +682,53 @@ export default function AdminDashboard() {
               </button>
               <div>
                 <h1 className="text-xl font-bold">Dashboard</h1>
-                <p className="text-sm text-muted">Welcome back, Admin</p>
+                <p className="text-sm text-muted">Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}</p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
+              {/* View mode toggle */}
+              <div className="hidden sm:flex items-center bg-card border border-card-border rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`p-2 rounded-md transition-colors ${
+                    viewMode === 'table' ? 'bg-accent text-white' : 'text-muted hover:text-foreground'
+                  }`}
+                  title="Table view"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('map')}
+                  className={`p-2 rounded-md transition-colors ${
+                    viewMode === 'map' ? 'bg-accent text-white' : 'text-muted hover:text-foreground'
+                  }`}
+                  title="Map view"
+                >
+                  <MapIcon className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('split')}
+                  className={`p-2 rounded-md transition-colors ${
+                    viewMode === 'split' ? 'bg-accent text-white' : 'text-muted hover:text-foreground'
+                  }`}
+                  title="Split view"
+                >
+                  <Split className="w-4 h-4" />
+                </button>
+              </div>
+
               <button className="p-2 rounded-lg hover:bg-card-border/50 transition-colors relative">
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-critical rounded-full" />
+                {alerts.length > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-critical rounded-full" />
+                )}
               </button>
-              <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border border-card-border hover:bg-card-border/50 transition-colors">
-                <RefreshCw className="w-4 h-4" />
+              <button
+                onClick={handleRefresh}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border border-card-border hover:bg-card-border/50 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${alertsLoading ? 'animate-spin' : ''}`} />
                 <span className="text-sm hidden sm:inline">Refresh</span>
               </button>
             </div>
@@ -547,67 +753,122 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             <StatsCard
               title="Active Nodes"
-              value={mockStats.activeNodes.toLocaleString()}
-              change="+12.5%"
+              value={statsLoading ? '...' : (stats?.active_devices || devices.length).toLocaleString()}
+              change={devices.length > 0 ? "Online" : undefined}
               changeType="up"
               icon={Smartphone}
-              iconColor="bg-accent"
+              iconColor="bg-gradient-to-br from-accent to-blue-600"
+              index={0}
             />
             <StatsCard
               title="Active SOS"
-              value={mockStats.activeSOSSignals}
-              change="+3"
-              changeType="up"
+              value={statsLoading ? '...' : (stats?.active_count || alerts.length)}
+              change={alerts.length > 0 ? `${alerts.length} active` : "Clear"}
+              changeType={alerts.length > 0 ? "up" : "neutral"}
               icon={AlertTriangle}
-              iconColor="bg-critical"
+              iconColor="bg-gradient-to-br from-critical to-red-600"
+              index={1}
             />
             <StatsCard
-              title="Messages Relayed"
-              value={`${(mockStats.messagesRelayed / 1000).toFixed(1)}K`}
-              change="+8.2%"
-              changeType="up"
-              icon={Signal}
-              iconColor="bg-safe"
-            />
-            <StatsCard
-              title="Avg Response"
-              value={mockStats.avgResponseTime}
-              change="-0.8 min"
-              changeType="up"
-              icon={Clock}
-              iconColor="bg-warning"
-            />
-            <StatsCard
-              title="Coverage"
-              value={mockStats.networkCoverage}
-              change="+2.1%"
-              changeType="up"
-              icon={Globe}
-              iconColor="bg-purple-500"
-            />
-            <StatsCard
-              title="Battery Eff."
-              value={mockStats.batteryEfficiency}
-              change="Optimal"
+              title="Acknowledged"
+              value={statsLoading ? '...' : (stats?.acknowledged_count || 0)}
+              change="Responding"
               changeType="neutral"
+              icon={Signal}
+              iconColor="bg-gradient-to-br from-warning to-amber-600"
+              index={2}
+            />
+            <StatsCard
+              title="Resolved Today"
+              value={statsLoading ? '...' : (stats?.resolved_today || 0)}
+              change="Rescued"
+              changeType="up"
+              icon={CheckCircle}
+              iconColor="bg-gradient-to-br from-safe to-emerald-600"
+              index={3}
+            />
+            <StatsCard
+              title="Total Devices"
+              value={statsLoading ? '...' : (stats?.total_devices || 0).toLocaleString()}
+              change="Registered"
+              changeType="neutral"
+              icon={Globe}
+              iconColor="bg-gradient-to-br from-purple-500 to-violet-600"
+              index={4}
+            />
+            <StatsCard
+              title="Network"
+              value={devices.length > 0 ? "Online" : "Standby"}
+              change={devices.length > 0 ? "Active" : "Ready"}
+              changeType={devices.length > 0 ? "up" : "neutral"}
               icon={Battery}
-              iconColor="bg-safe"
+              iconColor="bg-gradient-to-br from-safe to-teal-600"
+              index={5}
             />
           </div>
 
-          {/* Main content grid */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <SOSTable />
+          {/* Main content grid - changes based on view mode */}
+          {viewMode === 'table' && (
+            <div className="grid lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <SOSTable
+                  alerts={alerts}
+                  loading={alertsLoading}
+                  onAcknowledge={handleAcknowledge}
+                  onResolve={handleResolve}
+                />
+              </div>
+              <div className="space-y-6">
+                <ActivityFeed alerts={alerts} />
+              </div>
             </div>
+          )}
+
+          {viewMode === 'map' && (
+            <div className="grid lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <AlertMap
+                  alerts={alerts}
+                  selectedAlertId={selectedAlertId}
+                  onAlertClick={(alert) => setSelectedAlertId(alert.id)}
+                  className="h-[600px]"
+                />
+              </div>
+              <div className="space-y-6">
+                <ActivityFeed alerts={alerts} />
+              </div>
+            </div>
+          )}
+
+          {viewMode === 'split' && (
             <div className="space-y-6">
-              <ActivityFeed />
+              {/* Map on top */}
+              <AlertMap
+                alerts={alerts}
+                selectedAlertId={selectedAlertId}
+                onAlertClick={(alert) => setSelectedAlertId(alert.id)}
+                className="h-[400px]"
+              />
+              {/* Table below */}
+              <div className="grid lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <SOSTable
+                    alerts={alerts}
+                    loading={alertsLoading}
+                    onAcknowledge={handleAcknowledge}
+                    onResolve={handleResolve}
+                  />
+                </div>
+                <div className="space-y-6">
+                  <ActivityFeed alerts={alerts} />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Bottom grid */}
           <div className="grid md:grid-cols-2 gap-6">
-            <NetworkZones />
+            <NetworkZones stats={stats} alerts={alerts} />
             <SystemHealth />
           </div>
         </div>
