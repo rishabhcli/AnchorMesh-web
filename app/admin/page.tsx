@@ -17,7 +17,6 @@ import {
   Settings,
   LogOut,
   Menu,
-  ChevronRight,
   RefreshCw,
   Shield,
   Smartphone,
@@ -27,8 +26,6 @@ import {
   AlertCircle,
   Map,
   BarChart3,
-  Download,
-  Filter,
   Loader2,
 } from "lucide-react";
 import { useActiveAlerts, useAlertStats, useActiveDevices, acknowledgeAlert, resolveAlert } from "@/hooks/useAlerts";
@@ -69,10 +66,6 @@ function Sidebar({
     { icon: BarChart3, label: "Dashboard", id: "dashboard" },
     { icon: AlertTriangle, label: "SOS Signals", id: "table" },
     { icon: Map, label: "Live Map", id: "map" },
-    { icon: Users, label: "Network Nodes", id: "nodes" },
-    { icon: Activity, label: "Analytics", id: "analytics" },
-    { icon: Bell, label: "Alerts", id: "alerts" },
-    { icon: Settings, label: "Settings", id: "settings" },
   ];
 
   return (
@@ -273,12 +266,9 @@ function SOSTable({ alerts, loading, onAcknowledge, onResolve }: {
           <p className="text-sm text-muted mt-1">Real-time emergency broadcasts from mesh network</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="p-2.5 rounded-xl hover:bg-card-border/50 transition-colors border border-transparent hover:border-card-border">
-            <Filter className="w-4 h-4 text-muted" />
-          </button>
-          <button className="p-2.5 rounded-xl hover:bg-card-border/50 transition-colors border border-transparent hover:border-card-border">
-            <Download className="w-4 h-4 text-muted" />
-          </button>
+          <span className="text-xs text-muted px-2 py-1 rounded bg-card-border/30">
+            Auto-refresh enabled
+          </span>
         </div>
       </div>
 
@@ -387,11 +377,12 @@ function SOSTable({ alerts, loading, onAcknowledge, onResolve }: {
 
       <div className="p-4 border-t border-card-border flex items-center justify-between bg-background/50">
         <p className="text-sm text-muted">
-          {loading ? 'Loading...' : `Showing ${Math.min(alerts.length, 10)} of ${alerts.length} active signals`}
+          {loading ? 'Loading...' : alerts.length === 0 ? 'No active signals' : `${alerts.length} active signal${alerts.length === 1 ? '' : 's'}`}
         </p>
-        <button className="text-sm text-accent hover:text-accent/80 flex items-center gap-1 font-medium transition-colors">
-          View all signals <ChevronRight className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1 text-xs text-muted">
+          <span className="w-2 h-2 rounded-full bg-safe animate-pulse" />
+          Live updates
+        </div>
       </div>
     </motion.div>
   );
@@ -487,9 +478,10 @@ function ActivityFeed({ alerts }: { alerts: SOSAlert[] }) {
       </div>
 
       <div className="p-4 border-t border-card-border">
-        <button className="w-full py-2 text-sm text-accent hover:bg-accent/10 rounded-lg transition-colors font-medium">
-          View all activity
-        </button>
+        <div className="flex items-center justify-center gap-2 text-xs text-muted">
+          <span className="w-2 h-2 rounded-full bg-safe animate-pulse" />
+          Realtime updates active
+        </div>
       </div>
     </motion.div>
   );
@@ -574,13 +566,35 @@ function NetworkZones({ stats, alerts }: { stats: AlertStats | null; alerts: SOS
   );
 }
 
-function SystemHealth() {
+function SystemHealth({ stats, alertsLoading, devices }: { stats: AlertStats | null; alertsLoading: boolean; devices: { id: string }[] }) {
+  const isConnected = !alertsLoading && stats !== null;
+  const activeDevices = stats?.active_devices || 0;
+  const totalDevices = stats?.total_devices || 0;
+
   const metrics = [
-    { label: "API Latency", value: "45ms", status: "good" },
-    { label: "Database", value: "Healthy", status: "good" },
-    { label: "BLE Gateway", value: "Online", status: "good" },
-    { label: "Cloud Sync", value: "Active", status: "good" },
+    {
+      label: "Supabase",
+      value: isConnected ? "Connected" : "Connecting...",
+      healthy: isConnected
+    },
+    {
+      label: "Realtime",
+      value: isConnected ? "Active" : "Waiting...",
+      healthy: isConnected
+    },
+    {
+      label: "Active Devices",
+      value: `${activeDevices}/${totalDevices}`,
+      healthy: activeDevices > 0
+    },
+    {
+      label: "Mesh Network",
+      value: devices.length > 0 ? "Online" : "Standby",
+      healthy: devices.length > 0
+    },
   ];
+
+  const allHealthy = metrics.every(m => m.healthy);
 
   return (
     <motion.div
@@ -591,12 +605,14 @@ function SystemHealth() {
     >
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="font-semibold">System Health</h3>
-          <p className="text-sm text-muted">All systems operational</p>
+          <h3 className="font-semibold">System Status</h3>
+          <p className="text-sm text-muted">{allHealthy ? "All systems operational" : "Some systems connecting..."}</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-safe animate-pulse" />
-          <span className="text-xs text-safe font-medium">Healthy</span>
+          <div className={`w-2 h-2 rounded-full ${allHealthy ? 'bg-safe' : 'bg-warning'} animate-pulse`} />
+          <span className={`text-xs ${allHealthy ? 'text-safe' : 'text-warning'} font-medium`}>
+            {allHealthy ? "Healthy" : "Connecting"}
+          </span>
         </div>
       </div>
 
@@ -608,7 +624,11 @@ function SystemHealth() {
           >
             <p className="text-xs text-muted mb-1">{metric.label}</p>
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-safe" />
+              {metric.healthy ? (
+                <CheckCircle className="w-4 h-4 text-safe" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-warning" />
+              )}
               <span className="text-sm font-medium">{metric.value}</span>
             </div>
           </div>
@@ -741,7 +761,11 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              <button className="p-2 rounded-lg hover:bg-card-border/50 transition-colors relative">
+              <button
+                onClick={handleRefresh}
+                className="p-2 rounded-lg hover:bg-card-border/50 transition-colors relative"
+                title={alerts.length > 0 ? `${alerts.length} active alerts - Click to refresh` : 'No active alerts'}
+              >
                 <Bell className="w-5 h-5" />
                 {alerts.length > 0 && (
                   <span className="absolute top-1 right-1 w-2 h-2 bg-critical rounded-full" />
@@ -757,17 +781,26 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* DEFCON Alert Banner */}
-          <div className="px-6 pb-4">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-warning/10 border border-warning/30">
-              <Zap className="w-5 h-5 text-warning" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-warning">DEFCON Level 3 Active</p>
-                <p className="text-xs text-muted">Earthquake warning issued for Los Angeles County - Mesh network on standby</p>
+          {/* Alert Banner - only show if there are critical alerts */}
+          {alerts.some(a => a.priority === 'critical' && a.status === 'active') && (
+            <div className="px-6 pb-4">
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-critical/10 border border-critical/30">
+                <Zap className="w-5 h-5 text-critical" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-critical">Critical Alert Active</p>
+                  <p className="text-xs text-muted">
+                    {alerts.filter(a => a.priority === 'critical' && a.status === 'active').length} critical emergency signal(s) require immediate attention
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setViewMode('table'); setActiveNav('table'); }}
+                  className="text-xs text-critical hover:underline"
+                >
+                  View Alerts
+                </button>
               </div>
-              <button className="text-xs text-warning hover:underline">Details</button>
             </div>
-          </div>
+          )}
         </header>
 
         {/* Dashboard content */}
@@ -892,7 +925,7 @@ export default function AdminDashboard() {
           {/* Bottom grid */}
           <div className="grid md:grid-cols-2 gap-6">
             <NetworkZones stats={stats} alerts={alerts} />
-            <SystemHealth />
+            <SystemHealth stats={stats} alertsLoading={alertsLoading} devices={devices} />
           </div>
         </div>
       </main>
