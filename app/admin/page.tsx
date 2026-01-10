@@ -54,21 +54,25 @@ function Sidebar({
   setIsOpen,
   userEmail,
   onSignOut,
+  activeNav,
+  onNavClick,
 }: {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   userEmail: string | null;
   onSignOut: () => void;
+  activeNav: string;
+  onNavClick: (nav: string) => void;
 }) {
 
   const navItems = [
-    { icon: BarChart3, label: "Dashboard", active: true },
-    { icon: AlertTriangle, label: "SOS Signals", active: false },
-    { icon: Map, label: "Live Map", active: false },
-    { icon: Users, label: "Network Nodes", active: false },
-    { icon: Activity, label: "Analytics", active: false },
-    { icon: Bell, label: "Alerts", active: false },
-    { icon: Settings, label: "Settings", active: false },
+    { icon: BarChart3, label: "Dashboard", id: "dashboard" },
+    { icon: AlertTriangle, label: "SOS Signals", id: "table" },
+    { icon: Map, label: "Live Map", id: "map" },
+    { icon: Users, label: "Network Nodes", id: "nodes" },
+    { icon: Activity, label: "Analytics", id: "analytics" },
+    { icon: Bell, label: "Alerts", id: "alerts" },
+    { icon: Settings, label: "Settings", id: "settings" },
   ];
 
   return (
@@ -105,9 +109,13 @@ function Sidebar({
           <nav className="flex-1 p-4 space-y-1">
             {navItems.map((item) => (
               <button
-                key={item.label}
+                key={item.id}
+                onClick={() => {
+                  onNavClick(item.id);
+                  setIsOpen(false);
+                }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${
-                  item.active
+                  activeNav === item.id
                     ? "bg-accent/10 text-accent"
                     : "text-muted hover:bg-card-border/50 hover:text-foreground"
                 }`}
@@ -614,6 +622,19 @@ export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
+  const [activeNav, setActiveNav] = useState('dashboard');
+
+  // Handle sidebar navigation
+  const handleNavClick = (navId: string) => {
+    setActiveNav(navId);
+    if (navId === 'table' || navId === 'alerts') {
+      setViewMode('table');
+    } else if (navId === 'map') {
+      setViewMode('map');
+    } else if (navId === 'dashboard') {
+      setViewMode('split');
+    }
+  };
 
   // Auth hook - redirects to login if not authenticated
   const { user, loading: authLoading, signOut } = useRequireAuth();
@@ -666,6 +687,8 @@ export default function AdminDashboard() {
         setIsOpen={setSidebarOpen}
         userEmail={user?.email || null}
         onSignOut={signOut}
+        activeNav={activeNav}
+        onNavClick={handleNavClick}
       />
 
       {/* Main content */}
@@ -690,7 +713,7 @@ export default function AdminDashboard() {
               {/* View mode toggle */}
               <div className="hidden sm:flex items-center bg-card border border-card-border rounded-lg p-1">
                 <button
-                  onClick={() => setViewMode('table')}
+                  onClick={() => { setViewMode('table'); setActiveNav('table'); }}
                   className={`p-2 rounded-md transition-colors ${
                     viewMode === 'table' ? 'bg-accent text-white' : 'text-muted hover:text-foreground'
                   }`}
@@ -699,7 +722,7 @@ export default function AdminDashboard() {
                   <LayoutGrid className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setViewMode('map')}
+                  onClick={() => { setViewMode('map'); setActiveNav('map'); }}
                   className={`p-2 rounded-md transition-colors ${
                     viewMode === 'map' ? 'bg-accent text-white' : 'text-muted hover:text-foreground'
                   }`}
@@ -708,7 +731,7 @@ export default function AdminDashboard() {
                   <MapIcon className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setViewMode('split')}
+                  onClick={() => { setViewMode('split'); setActiveNav('dashboard'); }}
                   className={`p-2 rounded-md transition-colors ${
                     viewMode === 'split' ? 'bg-accent text-white' : 'text-muted hover:text-foreground'
                   }`}
