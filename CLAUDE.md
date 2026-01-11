@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Aether SOS is a peer-to-peer mesh networking application for disaster relief. It enables emergency SOS alerts via Bluetooth Low Energy (BLE) mesh networking when internet infrastructure fails, allowing phones to relay critical messages across affected areas.
+AnchorMesh is a peer-to-peer mesh networking application for disaster relief. It enables emergency SOS alerts via Bluetooth Low Energy (BLE) mesh networking when internet infrastructure fails, allowing phones to relay critical messages across affected areas.
 
-This repository contains the **Rescue Dashboard** - a Next.js web application for rescue teams to monitor and respond to emergency alerts in real-time.
+This repository contains the **AnchorMesh Rescue Dashboard** - a Next.js web application for rescue teams to monitor and respond to emergency alerts in real-time.
 
 ## Commands
 

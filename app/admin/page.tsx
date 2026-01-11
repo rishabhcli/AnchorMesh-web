@@ -27,12 +27,35 @@ import {
   Map,
   BarChart3,
   Loader2,
+  Volume2,
+  VolumeX,
+  CloudLightning,
 } from "lucide-react";
 import { useActiveAlerts, useAlertStats, useActiveDevices, acknowledgeAlert, resolveAlert } from "@/hooks/useAlerts";
 import { useRequireAuth } from "@/hooks/useAuth";
+import { useAlertSoundNotifications } from "@/hooks/useAlertSound";
 import { SOSAlert, AlertStats, parseLocation, getPriorityStatus, timeAgo, getEmergencyLabel } from "@/lib/supabase";
 import dynamic from 'next/dynamic';
 import { LayoutGrid, MapIcon, Split } from 'lucide-react';
+
+// Dynamic imports for heavy components
+const DisasterFeed = dynamic(() => import('@/components/DisasterFeed'), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-card border border-card-border rounded-2xl p-6 flex items-center justify-center h-[400px]">
+      <Loader2 className="w-6 h-6 animate-spin text-accent" />
+    </div>
+  ),
+});
+
+const AnalyticsDashboard = dynamic(() => import('@/components/AnalyticsDashboard'), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-card border border-card-border rounded-2xl p-6 flex items-center justify-center h-[400px]">
+      <Loader2 className="w-6 h-6 animate-spin text-accent" />
+    </div>
+  ),
+});
 
 // Dynamic import for map component to avoid SSR issues
 const AlertMap = dynamic(() => import('@/components/AlertMap'), {
@@ -44,7 +67,7 @@ const AlertMap = dynamic(() => import('@/components/AlertMap'), {
   ),
 });
 
-type ViewMode = 'table' | 'map' | 'split';
+type ViewMode = 'table' | 'map' | 'split' | 'disasters' | 'analytics';
 
 function Sidebar({
   isOpen,
@@ -66,6 +89,8 @@ function Sidebar({
     { icon: BarChart3, label: "Dashboard", id: "dashboard" },
     { icon: AlertTriangle, label: "SOS Signals", id: "table" },
     { icon: Map, label: "Live Map", id: "map" },
+    { icon: CloudLightning, label: "Disasters", id: "disasters" },
+    { icon: Activity, label: "Analytics", id: "analytics" },
   ];
 
   return (
@@ -92,7 +117,7 @@ function Sidebar({
                 <Radio className="w-5 h-5 text-white" />
               </div>
               <div>
-                <span className="font-bold text-lg">Aether SOS</span>
+                <span className="font-bold text-lg">AnchorMesh</span>
                 <p className="text-xs text-muted">Admin Panel</p>
               </div>
             </div>
@@ -653,6 +678,10 @@ export default function AdminDashboard() {
       setViewMode('map');
     } else if (navId === 'dashboard') {
       setViewMode('split');
+    } else if (navId === 'disasters') {
+      setViewMode('disasters');
+    } else if (navId === 'analytics') {
+      setViewMode('analytics');
     }
   };
 
@@ -663,6 +692,12 @@ export default function AdminDashboard() {
   const { alerts, loading: alertsLoading, refresh: refreshAlerts } = useActiveAlerts();
   const { stats, loading: statsLoading, refresh: refreshStats } = useAlertStats();
   const { devices } = useActiveDevices();
+
+  // Alert sound notifications
+  const { isMuted, toggleMute, testSound, isSupported: soundSupported } = useAlertSoundNotifications(
+    alerts,
+    { enabled: true, volume: 0.5 }
+  );
 
   // Handle alert actions
   const handleAcknowledge = async (alertId: string) => {
@@ -760,6 +795,17 @@ export default function AdminDashboard() {
                   <Split className="w-4 h-4" />
                 </button>
               </div>
+
+              {/* Sound toggle button */}
+              {soundSupported && (
+                <button
+                  onClick={toggleMute}
+                  className={`p-2 rounded-lg hover:bg-card-border/50 transition-colors ${isMuted ? 'text-muted' : 'text-foreground'}`}
+                  title={isMuted ? 'Unmute alerts' : 'Mute alerts'}
+                >
+                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </button>
+              )}
 
               <button
                 onClick={handleRefresh}
@@ -918,6 +964,30 @@ export default function AdminDashboard() {
                 <div className="space-y-6">
                   <ActivityFeed alerts={alerts} />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {viewMode === 'disasters' && (
+            <div className="grid lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <DisasterFeed maxItems={20} showStats={true} />
+              </div>
+              <div className="space-y-6">
+                <ActivityFeed alerts={alerts} />
+                <SystemHealth stats={stats} alertsLoading={alertsLoading} devices={devices} />
+              </div>
+            </div>
+          )}
+
+          {viewMode === 'analytics' && (
+            <div className="grid lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <AnalyticsDashboard alerts={alerts} stats={stats} />
+              </div>
+              <div className="space-y-6">
+                <NetworkZones stats={stats} alerts={alerts} />
+                <ActivityFeed alerts={alerts} />
               </div>
             </div>
           )}

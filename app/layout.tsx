@@ -13,12 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Aether SOS - Disaster Relief Mesh Network",
+  title: "AnchorMesh - Disaster Relief Mesh Network",
   description: "A peer-to-peer mesh network app for disaster relief. When internet fails, your phone becomes part of a life-saving network. Everyone is a hero.",
-  keywords: ["disaster relief", "mesh network", "SOS", "emergency", "BLE", "offline", "rescue"],
-  authors: [{ name: "Aether SOS Team" }],
+  keywords: ["disaster relief", "mesh network", "SOS", "emergency", "BLE", "offline", "rescue", "AnchorMesh"],
+  authors: [{ name: "AnchorMesh Team" }],
   openGraph: {
-    title: "Aether SOS - Disaster Relief Mesh Network",
+    title: "AnchorMesh - Disaster Relief Mesh Network",
     description: "When internet fails, your phone becomes part of a life-saving network.",
     type: "website",
   },

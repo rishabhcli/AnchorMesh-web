@@ -66,7 +66,7 @@ function Navbar() {
             </div>
             <div className="absolute -top-1 -right-1 w-3 h-3 bg-critical rounded-full animate-pulse" />
           </div>
-          <span className="font-bold text-xl tracking-tight">Aether SOS</span>
+          <span className="font-bold text-xl tracking-tight">AnchorMesh</span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm text-muted">
           <a href="#how-it-works" className="hover:text-foreground transition-colors">How It Works</a>
@@ -239,7 +239,7 @@ function DisasterTypesSection() {
             Built for <span className="gradient-text">Natural Disasters</span>
           </h2>
           <p className="text-xl text-muted max-w-2xl mx-auto">
-            When infrastructure fails, communication is critical. Aether SOS keeps you connected.
+            When infrastructure fails, communication is critical. AnchorMesh keeps you connected.
           </p>
         </motion.div>
 
@@ -1079,7 +1079,7 @@ function Footer() {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-critical via-warning to-safe flex items-center justify-center">
                 <Radio className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-xl">Aether SOS</span>
+              <span className="font-bold text-xl">AnchorMesh</span>
             </div>
             <p className="text-muted text-sm">
               A peer-to-peer mesh network for disaster relief.

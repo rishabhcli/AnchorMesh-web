@@ -123,7 +123,7 @@ export default function AdminLogin() {
             transition={{ delay: 0.4 }}
             className="text-muted text-sm"
           >
-            Sign in to access the Aether SOS control center
+            Sign in to access the AnchorMesh control center
           </motion.p>
         </div>
 
@@ -173,7 +173,7 @@ export default function AdminLogin() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@aethersos.com"
+                  placeholder="admin@anchormesh.com"
                   required
                   className="w-full pl-12 pr-4 py-3 rounded-xl bg-background border border-card-border focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all text-foreground placeholder:text-muted/50"
                 />

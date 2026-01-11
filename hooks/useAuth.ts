@@ -160,7 +160,7 @@ export function useAuth() {
       });
 
       // Clear any localStorage auth state (for migration from demo auth)
-      localStorage.removeItem('aether_admin_auth');
+      localStorage.removeItem('anchormesh_admin_auth');
 
       router.push('/admin/login');
     } catch (e) {
