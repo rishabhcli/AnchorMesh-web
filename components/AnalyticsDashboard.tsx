@@ -18,7 +18,7 @@ interface AnalyticsDashboardProps {
   className?: string;
 }
 
-// Simple bar chart component
+// Simple bar chart component - Matrix style
 function BarChart({ data, maxValue, colorMap }: {
   data: Array<{ label: string; value: number; key: string }>;
   maxValue: number;
@@ -34,16 +34,19 @@ function BarChart({ data, maxValue, colorMap }: {
           transition={{ delay: index * 0.05 }}
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-medium capitalize">{item.label}</span>
-            <span className="text-sm text-muted">{item.value}</span>
+            <span className="text-sm font-mono uppercase text-foreground">{item.label.replace(' ', '_')}</span>
+            <span className="text-sm text-foreground font-mono">[{item.value}]</span>
           </div>
-          <div className="h-3 bg-card-border/50 rounded-full overflow-hidden">
+          <div className="h-3 bg-black border border-card-border rounded overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${(item.value / maxValue) * 100}%` }}
               transition={{ delay: index * 0.05 + 0.2, duration: 0.5 }}
-              className="h-full rounded-full"
-              style={{ backgroundColor: colorMap[item.key] || '#3b82f6' }}
+              className="h-full rounded"
+              style={{
+                backgroundColor: colorMap[item.key] || '#ffffff',
+                boxShadow: `0 0 10px ${colorMap[item.key] || '#ffffff'}40`
+              }}
             />
           </div>
         </motion.div>
@@ -52,7 +55,7 @@ function BarChart({ data, maxValue, colorMap }: {
   );
 }
 
-// Donut chart component
+// Donut chart component - Matrix style
 function DonutChart({ data, size = 120 }: {
   data: Array<{ label: string; value: number; color: string }>;
   size?: number;
@@ -71,9 +74,8 @@ function DonutChart({ data, size = 120 }: {
           cy={size / 2}
           r={radius}
           fill="transparent"
-          stroke="currentColor"
+          stroke="#003300"
           strokeWidth="12"
-          className="text-card-border/30"
         />
         {data.map((item, index) => {
           const percentage = total > 0 ? item.value / total : 0;
@@ -92,23 +94,24 @@ function DonutChart({ data, size = 120 }: {
               strokeWidth="12"
               strokeDasharray={strokeDasharray}
               strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
+              strokeLinecap="butt"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: index * 0.1 }}
+              style={{ filter: `drop-shadow(0 0 5px ${item.color})` }}
             />
           );
         })}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold">{total}</span>
-        <span className="text-xs text-muted">Total</span>
+        <span className="text-2xl font-mono text-foreground glow-text">{total}</span>
+        <span className="text-xs text-muted font-mono">TOTAL</span>
       </div>
     </div>
   );
 }
 
-// Timeline component
+// Timeline component - Matrix style
 function AlertTimeline({ alerts }: { alerts: SOSAlert[] }) {
   // Group alerts by hour
   const hourlyData = useMemo(() => {
@@ -145,9 +148,10 @@ function AlertTimeline({ alerts }: { alerts: SOSAlert[] }) {
         <motion.div
           key={item.hour}
           initial={{ height: 0 }}
-          animate={{ height: `${(item.count / maxCount) * 100}%` }}
+          animate={{ height: `${Math.max((item.count / maxCount) * 100, 4)}%` }}
           transition={{ delay: index * 0.03, duration: 0.3 }}
-          className="flex-1 bg-gradient-to-t from-accent to-accent/50 rounded-t min-h-[4px]"
+          className="flex-1 bg-foreground rounded-t border border-foreground"
+          style={{ boxShadow: '0 0 10px rgba(255, 255, 255, 0.3)' }}
           title={`${item.hour}:00 - ${item.count} alerts`}
         />
       ))}
@@ -202,28 +206,28 @@ export default function AnalyticsDashboard({ alerts, stats, className = '' }: An
     };
   }, [alerts, stats]);
 
-  // Color maps
+  // Color maps - Matrix style (white)
   const typeColorMap: Record<string, string> = {
-    medical: '#ef4444',
-    fire: '#f97316',
-    security: '#8b5cf6',
-    natural_disaster: '#eab308',
-    accident: '#3b82f6',
-    other: '#6b7280',
+    medical: '#ff0000',
+    fire: '#ff6600',
+    security: '#ffffff',
+    natural_disaster: '#ffffff',
+    accident: '#ffffff',
+    other: '#888888',
   };
 
   const priorityColorMap: Record<string, string> = {
-    critical: '#ef4444',
-    high: '#f97316',
-    medium: '#eab308',
-    low: '#22c55e',
+    critical: '#ff0000',
+    high: '#ffffff',
+    medium: '#aaaaaa',
+    low: '#666666',
   };
 
   // Donut chart data
   const donutData = analyticsData.priorityData.map(item => ({
     label: item.label,
     value: item.value,
-    color: priorityColorMap[item.key] || '#6b7280',
+    color: priorityColorMap[item.key] || '#008f11',
   }));
 
   return (
@@ -231,32 +235,32 @@ export default function AnalyticsDashboard({ alerts, stats, className = '' }: An
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className={`bg-card border border-card-border rounded-2xl shadow-xl overflow-hidden ${className}`}
+      className={`bg-black border border-card-border rounded overflow-hidden ${className}`}
     >
-      {/* Header */}
+      {/* Header - Matrix style */}
       <div className="p-6 border-b border-card-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded border border-foreground flex items-center justify-center glow-effect">
+              <BarChart3 className="w-5 h-5 text-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold text-lg">Analytics</h3>
-              <p className="text-sm text-muted">Alert statistics and trends</p>
+              <h3 className="font-mono text-lg text-foreground glow-text uppercase tracking-wider">&gt; ANALYTICS</h3>
+              <p className="text-sm text-muted font-mono">// Alert statistics and trends</p>
             </div>
           </div>
-          <div className="flex items-center gap-1 bg-card-border/50 rounded-lg p-1">
+          <div className="flex items-center gap-1 border border-card-border rounded p-1">
             {(['24h', '7d', '30d'] as const).map((range) => (
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
                   timeRange === range
-                    ? 'bg-accent text-white'
+                    ? 'border border-foreground text-foreground'
                     : 'text-muted hover:text-foreground'
                 }`}
               >
-                {range}
+                [{range.toUpperCase()}]
               </button>
             ))}
           </div>
@@ -265,38 +269,38 @@ export default function AnalyticsDashboard({ alerts, stats, className = '' }: An
 
       {/* Content */}
       <div className="p-6 space-y-6">
-        {/* Key Metrics */}
+        {/* Key Metrics - Matrix style */}
         <div className="grid grid-cols-3 gap-4">
-          <div className="bg-background rounded-xl p-4 text-center">
+          <div className="bg-black rounded border border-card-border p-4 text-center hover:border-foreground transition-colors">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <Clock className="w-4 h-4 text-accent" />
-              <span className="text-xs text-muted">Avg Response</span>
+              <Clock className="w-4 h-4 text-foreground" />
+              <span className="text-xs text-muted font-mono">AVG_RESPONSE</span>
             </div>
-            <p className="text-2xl font-bold">{analyticsData.avgResponseTime}m</p>
+            <p className="text-2xl font-mono text-foreground glow-text">{analyticsData.avgResponseTime}m</p>
           </div>
-          <div className="bg-background rounded-xl p-4 text-center">
+          <div className="bg-black rounded border border-card-border p-4 text-center hover:border-foreground transition-colors">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <Activity className="w-4 h-4 text-safe" />
-              <span className="text-xs text-muted">Mesh Relays</span>
+              <Activity className="w-4 h-4 text-foreground" />
+              <span className="text-xs text-muted font-mono">MESH_RELAYS</span>
             </div>
-            <p className="text-2xl font-bold">{analyticsData.relayedCount}</p>
+            <p className="text-2xl font-mono text-foreground glow-text">{analyticsData.relayedCount}</p>
           </div>
-          <div className="bg-background rounded-xl p-4 text-center">
+          <div className="bg-black rounded border border-card-border p-4 text-center hover:border-foreground transition-colors">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <TrendingUp className="w-4 h-4 text-warning" />
-              <span className="text-xs text-muted">Avg Hops</span>
+              <TrendingUp className="w-4 h-4 text-foreground" />
+              <span className="text-xs text-muted font-mono">AVG_HOPS</span>
             </div>
-            <p className="text-2xl font-bold">{analyticsData.avgHops}</p>
+            <p className="text-2xl font-mono text-foreground glow-text">{analyticsData.avgHops}</p>
           </div>
         </div>
 
-        {/* Charts Row */}
+        {/* Charts Row - Matrix style */}
         <div className="grid md:grid-cols-2 gap-6">
           {/* By Priority (Donut) */}
-          <div className="bg-background rounded-xl p-4">
-            <h4 className="font-medium mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-warning" />
-              By Priority
+          <div className="bg-black rounded border border-card-border p-4">
+            <h4 className="font-mono mb-4 flex items-center gap-2 text-foreground uppercase">
+              <AlertTriangle className="w-4 h-4" />
+              &gt; BY_PRIORITY
             </h4>
             <div className="flex items-center justify-center">
               <DonutChart data={donutData} size={140} />
@@ -305,21 +309,21 @@ export default function AnalyticsDashboard({ alerts, stats, className = '' }: An
               {donutData.map((item) => (
                 <div key={item.label} className="flex items-center gap-2">
                   <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
+                    className="w-3 h-3 rounded border"
+                    style={{ borderColor: item.color, boxShadow: `0 0 5px ${item.color}` }}
                   />
-                  <span className="text-xs text-muted capitalize">{item.label}</span>
-                  <span className="text-xs font-medium ml-auto">{item.value}</span>
+                  <span className="text-xs text-muted font-mono uppercase">{item.label}</span>
+                  <span className="text-xs font-mono ml-auto text-foreground">[{item.value}]</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* By Type (Bar) */}
-          <div className="bg-background rounded-xl p-4">
-            <h4 className="font-medium mb-4 flex items-center gap-2">
-              <Users className="w-4 h-4 text-accent" />
-              By Emergency Type
+          <div className="bg-black rounded border border-card-border p-4">
+            <h4 className="font-mono mb-4 flex items-center gap-2 text-foreground uppercase">
+              <Users className="w-4 h-4" />
+              &gt; BY_EMERGENCY_TYPE
             </h4>
             <BarChart
               data={analyticsData.typeData}
@@ -329,16 +333,16 @@ export default function AnalyticsDashboard({ alerts, stats, className = '' }: An
           </div>
         </div>
 
-        {/* Timeline */}
-        <div className="bg-background rounded-xl p-4">
-          <h4 className="font-medium mb-4 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-accent" />
-            Alert Timeline (Last 12 Hours)
+        {/* Timeline - Matrix style */}
+        <div className="bg-black rounded border border-card-border p-4">
+          <h4 className="font-mono mb-4 flex items-center gap-2 text-foreground uppercase">
+            <Clock className="w-4 h-4" />
+            &gt; TIMELINE_12H
           </h4>
           <AlertTimeline alerts={alerts} />
-          <div className="flex justify-between text-xs text-muted mt-2">
-            <span>12h ago</span>
-            <span>Now</span>
+          <div className="flex justify-between text-xs text-muted mt-2 font-mono">
+            <span>[-12H]</span>
+            <span>[NOW]</span>
           </div>
         </div>
       </div>

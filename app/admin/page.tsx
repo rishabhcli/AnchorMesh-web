@@ -67,6 +67,11 @@ const AlertMap = dynamic(() => import('@/components/AlertMap'), {
   ),
 });
 
+// Matrix Rain background
+const MatrixRain = dynamic(() => import('@/components/MatrixRain'), {
+  ssr: false,
+});
+
 type ViewMode = 'table' | 'map' | 'split' | 'disasters' | 'analytics';
 
 function Sidebar({
@@ -110,15 +115,13 @@ function Sidebar({
         }`}
       >
         <div className="flex flex-col h-full">
-          {/* Logo */}
+          {/* Logo - Matrix Style */}
           <div className="p-6 border-b border-card-border">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-critical via-warning to-safe flex items-center justify-center">
-                <Radio className="w-5 h-5 text-white" />
-              </div>
+              <img src="/icon.png" alt="AnchorMesh" className="w-10 h-10 rounded" />
               <div>
-                <span className="font-bold text-lg">AnchorMesh</span>
-                <p className="text-xs text-muted">Admin Panel</p>
+                <span className="font-bold text-lg text-foreground glow-text tracking-wider">ANCHOR_MESH</span>
+                <p className="text-xs text-muted font-mono">[SYSTEM v2.0]</p>
               </div>
             </div>
           </div>
@@ -144,23 +147,23 @@ function Sidebar({
             ))}
           </nav>
 
-          {/* User section */}
+          {/* User section - Matrix Style */}
           <div className="p-4 border-t border-card-border">
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-background">
-              <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-                <Shield className="w-5 h-5 text-accent" />
+            <div className="flex items-center gap-3 px-4 py-3 rounded border border-card-border bg-black">
+              <div className="w-10 h-10 rounded border border-foreground flex items-center justify-center">
+                <Shield className="w-5 h-5 text-foreground" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Responder</p>
-                <p className="text-xs text-muted truncate">{userEmail || 'Unknown'}</p>
+                <p className="text-sm font-medium truncate text-foreground font-mono">OPERATOR</p>
+                <p className="text-xs text-muted truncate font-mono">{userEmail || 'UNKNOWN'}</p>
               </div>
             </div>
             <button
               onClick={onSignOut}
-              className="w-full flex items-center gap-3 px-4 py-3 mt-2 rounded-xl text-sm text-critical hover:bg-critical/10 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-3 mt-2 rounded border border-critical text-sm text-critical hover:bg-critical/10 transition-colors font-mono"
             >
               <LogOut className="w-5 h-5" />
-              Sign Out
+              [DISCONNECT]
             </button>
           </div>
         </div>
@@ -192,40 +195,45 @@ function StatsCard({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay: index * 0.05, duration: 0.3 }}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className="bg-card border border-card-border rounded-2xl p-6 card-hover group cursor-default"
+      className="bg-black border border-card-border rounded p-6 card-hover group cursor-default relative overflow-hidden"
     >
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-12 h-12 rounded-xl ${iconColor} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-          <Icon className="w-6 h-6 text-white" />
-        </div>
-        {change && (
-          <div
-            className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${
-              changeType === "up"
-                ? "bg-safe/20 text-safe"
-                : changeType === "down"
-                ? "bg-critical/20 text-critical"
-                : "bg-muted/20 text-muted"
-            }`}
-          >
-            {changeType === "up" ? (
-              <TrendingUp className="w-3 h-3" />
-            ) : changeType === "down" ? (
-              <TrendingDown className="w-3 h-3" />
-            ) : null}
-            {change}
+      {/* Matrix data stream effect */}
+      <div className="absolute inset-0 data-stream opacity-30" />
+
+      <div className="relative z-10">
+        <div className="flex items-start justify-between mb-4">
+          <div className="w-12 h-12 rounded border border-foreground flex items-center justify-center group-hover:glow-effect transition-all duration-300">
+            <Icon className="w-6 h-6 text-foreground" />
           </div>
-        )}
+          {change && (
+            <div
+              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded border font-mono ${
+                changeType === "up"
+                  ? "border-foreground text-foreground"
+                  : changeType === "down"
+                  ? "border-critical text-critical"
+                  : "border-muted text-muted"
+              }`}
+            >
+              {changeType === "up" ? (
+                <TrendingUp className="w-3 h-3" />
+              ) : changeType === "down" ? (
+                <TrendingDown className="w-3 h-3" />
+              ) : null}
+              {change}
+            </div>
+          )}
+        </div>
+        <motion.p
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: index * 0.05 + 0.2, type: "spring", stiffness: 200 }}
+          className="text-3xl font-bold mb-1 tracking-tight text-foreground glow-text font-mono"
+        >
+          {value}
+        </motion.p>
+        <p className="text-sm text-muted font-mono uppercase tracking-wider">{title}</p>
       </div>
-      <motion.p
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: index * 0.05 + 0.2, type: "spring", stiffness: 200 }}
-        className="text-3xl font-bold mb-1 tracking-tight"
-      >
-        {value}
-      </motion.p>
-      <p className="text-sm text-muted font-medium">{title}</p>
     </motion.div>
   );
 }
@@ -275,24 +283,24 @@ function SOSTable({ alerts, loading, onAcknowledge, onResolve }: {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className="bg-card border border-card-border rounded-2xl overflow-hidden shadow-xl"
+      className="bg-black border border-card-border rounded overflow-hidden"
     >
       <div className="p-6 border-b border-card-border flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h3 className="font-semibold text-lg">Active SOS Signals</h3>
+            <h3 className="font-mono text-lg text-foreground glow-text uppercase tracking-wider">&gt; ACTIVE_SOS_SIGNALS</h3>
             {alerts.length > 0 && (
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-critical/20 text-critical text-xs font-medium">
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-critical text-critical text-xs font-mono">
                 <span className="w-2 h-2 rounded-full bg-critical animate-pulse" />
-                {alerts.length} Active
+                [{alerts.length}] ACTIVE
               </span>
             )}
           </div>
-          <p className="text-sm text-muted mt-1">Real-time emergency broadcasts from mesh network</p>
+          <p className="text-sm text-muted mt-1 font-mono">// Real-time emergency broadcasts from mesh network</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted px-2 py-1 rounded bg-card-border/30">
-            Auto-refresh enabled
+          <span className="text-xs text-muted px-2 py-1 rounded border border-card-border font-mono">
+            [AUTO_REFRESH: ON]
           </span>
         </div>
       </div>
@@ -301,18 +309,18 @@ function SOSTable({ alerts, loading, onAcknowledge, onResolve }: {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="relative">
-              <div className="w-16 h-16 border-4 border-card-border rounded-full" />
-              <div className="absolute inset-0 w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+              <div className="w-16 h-16 border-2 border-card-border rounded" />
+              <div className="absolute inset-0 w-16 h-16 border-2 border-foreground border-t-transparent rounded animate-spin" />
             </div>
-            <p className="mt-4 text-muted font-medium">Loading alerts...</p>
+            <p className="mt-4 text-muted font-mono">LOADING_ALERTS...</p>
           </div>
         ) : alerts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-muted">
-            <div className="w-20 h-20 rounded-full bg-safe/10 flex items-center justify-center mb-4">
-              <CheckCircle className="w-10 h-10 text-safe" />
+            <div className="w-20 h-20 rounded border border-foreground flex items-center justify-center mb-4 glow-effect">
+              <CheckCircle className="w-10 h-10 text-foreground" />
             </div>
-            <p className="text-xl font-semibold text-foreground">No Active Emergencies</p>
-            <p className="text-sm mt-1">All clear - no SOS signals in the network</p>
+            <p className="text-xl font-mono text-foreground glow-text">[STATUS: ALL_CLEAR]</p>
+            <p className="text-sm mt-1 font-mono">// No SOS signals detected in mesh network</p>
           </div>
         ) : (
           <table className="w-full">
@@ -400,13 +408,13 @@ function SOSTable({ alerts, loading, onAcknowledge, onResolve }: {
         )}
       </div>
 
-      <div className="p-4 border-t border-card-border flex items-center justify-between bg-background/50">
-        <p className="text-sm text-muted">
-          {loading ? 'Loading...' : alerts.length === 0 ? 'No active signals' : `${alerts.length} active signal${alerts.length === 1 ? '' : 's'}`}
+      <div className="p-4 border-t border-card-border flex items-center justify-between bg-black">
+        <p className="text-sm text-muted font-mono">
+          {loading ? '> LOADING...' : alerts.length === 0 ? '> NO_ACTIVE_SIGNALS' : `> ${alerts.length} ACTIVE_SIGNAL${alerts.length === 1 ? '' : 'S'}`}
         </p>
-        <div className="flex items-center gap-1 text-xs text-muted">
-          <span className="w-2 h-2 rounded-full bg-safe animate-pulse" />
-          Live updates
+        <div className="flex items-center gap-2 text-xs text-foreground font-mono">
+          <span className="w-2 h-2 rounded-full bg-foreground animate-pulse" />
+          [LIVE_STREAM: ACTIVE]
         </div>
       </div>
     </motion.div>
@@ -459,27 +467,27 @@ function ActivityFeed({ alerts }: { alerts: SOSAlert[] }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className="bg-card border border-card-border rounded-2xl shadow-xl"
+      className="bg-black border border-card-border rounded"
     >
       <div className="p-6 border-b border-card-border">
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-lg">Recent Activity</h3>
-          <span className="flex items-center gap-1 text-xs text-safe">
-            <span className="w-2 h-2 rounded-full bg-safe animate-pulse" />
-            Live
+          <h3 className="font-mono text-lg text-foreground glow-text uppercase tracking-wider">&gt; ACTIVITY_LOG</h3>
+          <span className="flex items-center gap-1 text-xs text-foreground font-mono">
+            <span className="w-2 h-2 rounded-full bg-foreground animate-pulse" />
+            [LIVE]
           </span>
         </div>
-        <p className="text-sm text-muted mt-1">Latest alerts from mesh network</p>
+        <p className="text-sm text-muted mt-1 font-mono">// Latest alerts from mesh network</p>
       </div>
 
       <div className="p-4 space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
         {recentAlerts.length === 0 ? (
           <div className="text-center py-12 text-muted">
-            <div className="w-16 h-16 rounded-full bg-card-border/30 flex items-center justify-center mx-auto mb-4">
-              <Activity className="w-8 h-8 opacity-50" />
+            <div className="w-16 h-16 rounded border border-card-border flex items-center justify-center mx-auto mb-4">
+              <Activity className="w-8 h-8 text-muted" />
             </div>
-            <p className="font-medium">No recent activity</p>
-            <p className="text-xs mt-1">Activity will appear here in real-time</p>
+            <p className="font-mono text-foreground">[NO_RECENT_ACTIVITY]</p>
+            <p className="text-xs mt-1 font-mono">// Awaiting real-time data stream...</p>
           </div>
         ) : (
           recentAlerts.map((alert, index) => (
@@ -503,9 +511,9 @@ function ActivityFeed({ alerts }: { alerts: SOSAlert[] }) {
       </div>
 
       <div className="p-4 border-t border-card-border">
-        <div className="flex items-center justify-center gap-2 text-xs text-muted">
-          <span className="w-2 h-2 rounded-full bg-safe animate-pulse" />
-          Realtime updates active
+        <div className="flex items-center justify-center gap-2 text-xs text-foreground font-mono">
+          <span className="w-2 h-2 rounded-full bg-foreground animate-pulse" />
+          [REALTIME_STREAM: CONNECTED]
         </div>
       </div>
     </motion.div>
@@ -555,33 +563,33 @@ function NetworkZones({ stats, alerts }: { stats: AlertStats | null; alerts: SOS
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="bg-card border border-card-border rounded-2xl"
+      className="bg-black border border-card-border rounded"
     >
       <div className="p-6 border-b border-card-border">
-        <h3 className="font-semibold">Alert Categories</h3>
-        <p className="text-sm text-muted">Breakdown by type and priority</p>
+        <h3 className="font-mono text-foreground glow-text uppercase tracking-wider">&gt; ALERT_CATEGORIES</h3>
+        <p className="text-sm text-muted font-mono">// Breakdown by type and priority</p>
       </div>
 
       <div className="p-4 space-y-3">
         {zones.map((zone) => (
           <div
             key={zone.zone}
-            className="flex items-center justify-between p-4 rounded-xl bg-background border border-card-border"
+            className="flex items-center justify-between p-4 rounded border border-card-border bg-black hover:border-foreground transition-colors"
           >
             <div className="flex items-center gap-3">
               <div
                 className={`w-3 h-3 rounded-full ${
-                  zone.status === "active" ? zone.color : zone.status === "warning" ? "bg-warning" : "bg-safe"
+                  zone.status === "active" ? "bg-critical" : zone.status === "warning" ? "bg-foreground" : "bg-muted"
                 }`}
               />
               <div>
-                <p className="font-medium text-sm">{zone.zone}</p>
-                <p className="text-xs text-muted capitalize">{zone.status}</p>
+                <p className="font-mono text-sm text-foreground uppercase">{zone.zone.replace(/ /g, '_')}</p>
+                <p className="text-xs text-muted font-mono">[{zone.status.toUpperCase()}]</p>
               </div>
             </div>
             <div className="text-right">
-              <p className={`text-sm font-semibold ${zone.count > 0 ? 'text-critical' : 'text-muted'}`}>
-                {zone.count} alerts
+              <p className={`text-sm font-mono ${zone.count > 0 ? 'text-critical' : 'text-muted'}`}>
+                [{zone.count}] ALERTS
               </p>
             </div>
           </div>
@@ -626,17 +634,17 @@ function SystemHealth({ stats, alertsLoading, devices }: { stats: AlertStats | n
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5 }}
-      className="bg-card border border-card-border rounded-2xl p-6"
+      className="bg-black border border-card-border rounded p-6"
     >
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="font-semibold">System Status</h3>
-          <p className="text-sm text-muted">{allHealthy ? "All systems operational" : "Some systems connecting..."}</p>
+          <h3 className="font-mono text-foreground glow-text uppercase tracking-wider">&gt; SYSTEM_STATUS</h3>
+          <p className="text-sm text-muted font-mono">{allHealthy ? "// All systems operational" : "// Establishing connections..."}</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${allHealthy ? 'bg-safe' : 'bg-warning'} animate-pulse`} />
-          <span className={`text-xs ${allHealthy ? 'text-safe' : 'text-warning'} font-medium`}>
-            {allHealthy ? "Healthy" : "Connecting"}
+          <div className={`w-2 h-2 rounded-full ${allHealthy ? 'bg-foreground' : 'bg-critical'} animate-pulse`} />
+          <span className={`text-xs ${allHealthy ? 'text-foreground' : 'text-critical'} font-mono`}>
+            [{allHealthy ? "HEALTHY" : "CONNECTING"}]
           </span>
         </div>
       </div>
@@ -645,16 +653,16 @@ function SystemHealth({ stats, alertsLoading, devices }: { stats: AlertStats | n
         {metrics.map((metric) => (
           <div
             key={metric.label}
-            className="p-3 rounded-xl bg-background border border-card-border"
+            className="p-3 rounded border border-card-border bg-black hover:border-foreground transition-colors"
           >
-            <p className="text-xs text-muted mb-1">{metric.label}</p>
+            <p className="text-xs text-muted mb-1 font-mono uppercase">{metric.label.replace(/ /g, '_')}</p>
             <div className="flex items-center gap-2">
               {metric.healthy ? (
-                <CheckCircle className="w-4 h-4 text-safe" />
+                <CheckCircle className="w-4 h-4 text-foreground" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-warning" />
+                <AlertCircle className="w-4 h-4 text-critical" />
               )}
-              <span className="text-sm font-medium">{metric.value}</span>
+              <span className="text-sm font-mono text-foreground">{metric.value}</span>
             </div>
           </div>
         ))}
@@ -726,17 +734,20 @@ export default function AdminDashboard() {
   // Show loading while checking auth
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin" />
-          <p className="text-muted">Loading dashboard...</p>
+          <div className="w-12 h-12 border-2 border-foreground/30 border-t-foreground rounded animate-spin" />
+          <p className="text-foreground font-mono glow-text">INITIALIZING_SYSTEM...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black relative">
+      {/* Matrix Rain Background */}
+      <MatrixRain />
+
       <Sidebar
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
@@ -747,30 +758,30 @@ export default function AdminDashboard() {
       />
 
       {/* Main content */}
-      <main className="lg:ml-64">
+      <main className="lg:ml-64 relative z-10">
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-card-border">
+        <header className="sticky top-0 z-30 bg-black/90 backdrop-blur-xl border-b border-card-border">
           <div className="px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="p-2 rounded-lg hover:bg-card-border/50 lg:hidden"
+                className="p-2 rounded border border-card-border hover:border-foreground lg:hidden transition-colors"
               >
-                <Menu className="w-5 h-5" />
+                <Menu className="w-5 h-5 text-foreground" />
               </button>
               <div>
-                <h1 className="text-xl font-bold">Dashboard</h1>
-                <p className="text-sm text-muted">Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}</p>
+                <h1 className="text-xl font-mono text-foreground glow-text uppercase tracking-wider">&gt; COMMAND_CENTER</h1>
+                <p className="text-sm text-muted font-mono">// OPERATOR: {user?.email ? user.email.split('@')[0].toUpperCase() : 'UNKNOWN'}</p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
               {/* View mode toggle */}
-              <div className="hidden sm:flex items-center bg-card border border-card-border rounded-lg p-1">
+              <div className="hidden sm:flex items-center bg-black border border-card-border rounded p-1">
                 <button
                   onClick={() => { setViewMode('table'); setActiveNav('table'); }}
-                  className={`p-2 rounded-md transition-colors ${
-                    viewMode === 'table' ? 'bg-accent text-white' : 'text-muted hover:text-foreground'
+                  className={`p-2 rounded transition-colors ${
+                    viewMode === 'table' ? 'border border-foreground text-foreground' : 'text-muted hover:text-foreground'
                   }`}
                   title="Table view"
                 >
@@ -778,8 +789,8 @@ export default function AdminDashboard() {
                 </button>
                 <button
                   onClick={() => { setViewMode('map'); setActiveNav('map'); }}
-                  className={`p-2 rounded-md transition-colors ${
-                    viewMode === 'map' ? 'bg-accent text-white' : 'text-muted hover:text-foreground'
+                  className={`p-2 rounded transition-colors ${
+                    viewMode === 'map' ? 'border border-foreground text-foreground' : 'text-muted hover:text-foreground'
                   }`}
                   title="Map view"
                 >
@@ -787,8 +798,8 @@ export default function AdminDashboard() {
                 </button>
                 <button
                   onClick={() => { setViewMode('split'); setActiveNav('dashboard'); }}
-                  className={`p-2 rounded-md transition-colors ${
-                    viewMode === 'split' ? 'bg-accent text-white' : 'text-muted hover:text-foreground'
+                  className={`p-2 rounded transition-colors ${
+                    viewMode === 'split' ? 'border border-foreground text-foreground' : 'text-muted hover:text-foreground'
                   }`}
                   title="Split view"
                 >
@@ -800,7 +811,7 @@ export default function AdminDashboard() {
               {soundSupported && (
                 <button
                   onClick={toggleMute}
-                  className={`p-2 rounded-lg hover:bg-card-border/50 transition-colors ${isMuted ? 'text-muted' : 'text-foreground'}`}
+                  className={`p-2 rounded border border-card-border hover:border-foreground transition-colors ${isMuted ? 'text-muted' : 'text-foreground'}`}
                   title={isMuted ? 'Unmute alerts' : 'Mute alerts'}
                 >
                   {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
@@ -809,20 +820,20 @@ export default function AdminDashboard() {
 
               <button
                 onClick={handleRefresh}
-                className="p-2 rounded-lg hover:bg-card-border/50 transition-colors relative"
+                className="p-2 rounded border border-card-border hover:border-foreground transition-colors relative"
                 title={alerts.length > 0 ? `${alerts.length} active alerts - Click to refresh` : 'No active alerts'}
               >
-                <Bell className="w-5 h-5" />
+                <Bell className="w-5 h-5 text-foreground" />
                 {alerts.length > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-critical rounded-full" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-critical rounded-full animate-pulse" />
                 )}
               </button>
               <button
                 onClick={handleRefresh}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border border-card-border hover:bg-card-border/50 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded border border-card-border bg-black hover:border-foreground transition-colors font-mono text-foreground"
               >
                 <RefreshCw className={`w-4 h-4 ${alertsLoading ? 'animate-spin' : ''}`} />
-                <span className="text-sm hidden sm:inline">Refresh</span>
+                <span className="text-sm hidden sm:inline">[SYNC]</span>
               </button>
             </div>
           </div>
@@ -830,19 +841,19 @@ export default function AdminDashboard() {
           {/* Alert Banner - only show if there are critical alerts */}
           {alerts.some(a => a.priority === 'critical' && a.status === 'active') && (
             <div className="px-6 pb-4">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-critical/10 border border-critical/30">
+              <div className="flex items-center gap-3 p-3 rounded border border-critical bg-black critical-row">
                 <Zap className="w-5 h-5 text-critical" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-critical">Critical Alert Active</p>
-                  <p className="text-xs text-muted">
-                    {alerts.filter(a => a.priority === 'critical' && a.status === 'active').length} critical emergency signal(s) require immediate attention
+                  <p className="text-sm font-mono text-critical">!!! CRITICAL_ALERT_ACTIVE !!!</p>
+                  <p className="text-xs text-muted font-mono">
+                    [{alerts.filter(a => a.priority === 'critical' && a.status === 'active').length}] CRITICAL EMERGENCY SIGNAL(S) REQUIRE IMMEDIATE ATTENTION
                   </p>
                 </div>
                 <button
                   onClick={() => { setViewMode('table'); setActiveNav('table'); }}
-                  className="text-xs text-critical hover:underline"
+                  className="text-xs text-critical font-mono border border-critical px-2 py-1 rounded hover:bg-critical/20 transition-colors"
                 >
-                  View Alerts
+                  [VIEW_ALERTS]
                 </button>
               </div>
             </div>

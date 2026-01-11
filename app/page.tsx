@@ -61,9 +61,7 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-critical via-warning to-safe flex items-center justify-center">
-              <Radio className="w-5 h-5 text-white" />
-            </div>
+            <img src="/icon.png" alt="AnchorMesh" className="w-10 h-10 rounded-xl" />
             <div className="absolute -top-1 -right-1 w-3 h-3 bg-critical rounded-full animate-pulse" />
           </div>
           <span className="font-bold text-xl tracking-tight">AnchorMesh</span>
@@ -1076,9 +1074,7 @@ function Footer() {
         <div className="grid md:grid-cols-3 gap-12 mb-12">
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-critical via-warning to-safe flex items-center justify-center">
-                <Radio className="w-5 h-5 text-white" />
-              </div>
+              <img src="/icon.png" alt="AnchorMesh" className="w-10 h-10 rounded-xl" />
               <span className="font-bold text-xl">AnchorMesh</span>
             </div>
             <p className="text-muted text-sm">
