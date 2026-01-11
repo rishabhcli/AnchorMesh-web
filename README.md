@@ -1,6 +1,6 @@
 # AnchorMesh
 
-**When Towers Fall, People Connect.**
+**Turns Every Smartphone into a Beacon**
 
 AnchorMesh is a disaster relief mesh network application that turns smartphones into rescue beacons when traditional communication infrastructure fails. Built for the Alameda County Hackathon 2025.
 
