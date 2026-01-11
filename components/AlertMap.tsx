@@ -13,6 +13,14 @@ interface AlertMapProps {
   className?: string;
 }
 
+type MapStyle = 'dark' | 'satellite' | 'streets';
+
+const mapStyles: Record<MapStyle, string> = {
+  dark: 'mapbox://styles/mapbox/dark-v11',
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+  streets: 'mapbox://styles/mapbox/streets-v12',
+};
+
 // Priority colors for markers - Matrix style (white)
 const priorityColors: Record<string, string> = {
   critical: '#ff0000', // red (stays red for visibility)
@@ -179,6 +187,7 @@ export default function AlertMap({
 }: AlertMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [popupAlert, setPopupAlert] = useState<SOSAlert | null>(null);
+  const [mapStyle, setMapStyle] = useState<MapStyle>('dark');
   const [viewState, setViewState] = useState({
     longitude: -118.2437, // Los Angeles default
     latitude: 34.0522,
@@ -282,7 +291,7 @@ export default function AlertMap({
         ref={mapRef}
         {...viewState}
         onMove={(evt) => setViewState(evt.viewState)}
-        mapStyle="mapbox://styles/mapbox/dark-v11"
+        mapStyle={mapStyles[mapStyle]}
         mapboxAccessToken={mapboxToken}
         style={{ width: '100%', height: '100%' }}
       >
@@ -352,6 +361,23 @@ export default function AlertMap({
           <AlertTriangle className="w-4 h-4 text-foreground" />
           <span className="text-sm font-mono text-foreground">[{alertsWithLocation.length}] ACTIVE_ALERTS</span>
         </div>
+      </div>
+
+      {/* Map style toggle */}
+      <div className="absolute top-4 right-14 bg-black/90 backdrop-blur-sm border border-card-border rounded p-1 flex gap-1" style={{ boxShadow: '0 0 10px rgba(255, 255, 255, 0.1)' }}>
+        {(['dark', 'satellite', 'streets'] as MapStyle[]).map((style) => (
+          <button
+            key={style}
+            onClick={() => setMapStyle(style)}
+            className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+              mapStyle === style
+                ? 'bg-foreground text-black'
+                : 'text-muted hover:text-foreground'
+            }`}
+          >
+            {style.toUpperCase().slice(0, 3)}
+          </button>
+        ))}
       </div>
     </div>
   );

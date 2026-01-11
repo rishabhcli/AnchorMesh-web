@@ -30,10 +30,22 @@ import {
   Volume2,
   VolumeX,
   CloudLightning,
+  Play,
+  Pause,
+  RotateCcw,
+  ChevronDown,
+  Eye,
+  X,
+  Download,
+  Filter,
+  Search,
 } from "lucide-react";
-import { useActiveAlerts, useAlertStats, useActiveDevices, acknowledgeAlert, resolveAlert } from "@/hooks/useAlerts";
 import { useRequireAuth } from "@/hooks/useAuth";
 import { useAlertSoundNotifications } from "@/hooks/useAlertSound";
+import { useUnifiedAlerts, useUnifiedStats, useUnifiedDevices, useAlertActions, useAllAlerts } from "@/hooks/useDemoData";
+import { useLiveSimulation } from "@/hooks/useLiveSimulation";
+import { useDemo } from "@/lib/DemoContext";
+import { DISASTER_SCENARIOS, DisasterScenario } from "@/lib/demoData";
 import { SOSAlert, AlertStats, parseLocation, getPriorityStatus, timeAgo, getEmergencyLabel } from "@/lib/supabase";
 import dynamic from 'next/dynamic';
 import { LayoutGrid, MapIcon, Split } from 'lucide-react';
@@ -238,11 +250,16 @@ function StatsCard({
   );
 }
 
-function SOSTable({ alerts, loading, onAcknowledge, onResolve }: {
+function SOSTable({ alerts, loading, onAcknowledge, onResolve, onRowClick, totalCount, currentPage, totalPages, onPageChange }: {
   alerts: SOSAlert[];
   loading: boolean;
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
+  onRowClick?: (alert: SOSAlert) => void;
+  totalCount?: number;
+  currentPage?: number;
+  totalPages?: number;
+  onPageChange?: (page: number) => void;
 }) {
   const getStatusColor = (priority: string) => {
     switch (priority) {
@@ -336,13 +353,14 @@ function SOSTable({ alerts, loading, onAcknowledge, onResolve }: {
               </tr>
             </thead>
             <tbody>
-              {alerts.slice(0, 10).map((alert, index) => (
+              {alerts.map((alert, index) => (
                 <motion.tr
                   key={alert.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`border-b border-card-border/50 hover:bg-card-border/30 transition-all duration-200 ${getRowClass(alert.priority)}`}
+                  transition={{ delay: index * 0.02 }}
+                  onClick={() => onRowClick?.(alert)}
+                  className={`border-b border-card-border/50 hover:bg-card-border/30 transition-all duration-200 cursor-pointer ${getRowClass(alert.priority)}`}
                 >
                   <td className="px-6 py-4">
                     <span className="font-mono text-sm bg-background px-2 py-1 rounded">{alert.message_id.slice(0, 12)}...</span>
@@ -410,8 +428,29 @@ function SOSTable({ alerts, loading, onAcknowledge, onResolve }: {
 
       <div className="p-4 border-t border-card-border flex items-center justify-between bg-black">
         <p className="text-sm text-muted font-mono">
-          {loading ? '> LOADING...' : alerts.length === 0 ? '> NO_ACTIVE_SIGNALS' : `> ${alerts.length} ACTIVE_SIGNAL${alerts.length === 1 ? '' : 'S'}`}
+          {loading ? '> LOADING...' : alerts.length === 0 ? '> NO_ACTIVE_SIGNALS' : `> ${totalCount || alerts.length} ACTIVE_SIGNAL${(totalCount || alerts.length) === 1 ? '' : 'S'}`}
         </p>
+        {totalPages && totalPages > 1 && onPageChange && currentPage && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="px-2 py-1 rounded border border-card-border text-xs font-mono text-muted hover:text-foreground hover:border-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              PREV
+            </button>
+            <span className="text-xs font-mono text-muted">
+              [{currentPage}/{totalPages}]
+            </span>
+            <button
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="px-2 py-1 rounded border border-card-border text-xs font-mono text-muted hover:text-foreground hover:border-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              NEXT
+            </button>
+          </div>
+        )}
         <div className="flex items-center gap-2 text-xs text-foreground font-mono">
           <span className="w-2 h-2 rounded-full bg-foreground animate-pulse" />
           [LIVE_STREAM: ACTIVE]
@@ -671,11 +710,336 @@ function SystemHealth({ stats, alertsLoading, devices }: { stats: AlertStats | n
   );
 }
 
+// Demo Mode Banner Component
+function DemoModeBanner({
+  scenario,
+  onScenarioChange,
+  onReset,
+  isSimulating,
+  onToggleSimulation,
+}: {
+  scenario: DisasterScenario;
+  onScenarioChange: (s: DisasterScenario) => void;
+  onReset: () => void;
+  isSimulating: boolean;
+  onToggleSimulation: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const scenarioInfo = DISASTER_SCENARIOS[scenario];
+
+  return (
+    <div className="bg-gradient-to-r from-accent/20 via-accent/10 to-accent/20 border-b border-accent/30">
+      <div className="px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4 text-accent" />
+            <span className="text-sm font-mono text-accent">[DEMO_MODE]</span>
+          </div>
+          <div className="relative">
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded border border-accent/50 bg-black/50 hover:border-accent transition-colors"
+            >
+              <span className="text-sm font-mono text-foreground">{scenarioInfo.name}</span>
+              <ChevronDown className={`w-4 h-4 text-accent transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isOpen && (
+              <div className="absolute top-full left-0 mt-2 w-72 bg-black border border-card-border rounded shadow-xl z-50">
+                {(Object.keys(DISASTER_SCENARIOS) as DisasterScenario[]).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => { onScenarioChange(s); setIsOpen(false); }}
+                    className={`w-full text-left px-4 py-3 hover:bg-card-border/50 transition-colors ${scenario === s ? 'bg-accent/10 border-l-2 border-accent' : ''}`}
+                  >
+                    <p className="font-mono text-sm text-foreground">{DISASTER_SCENARIOS[s].name}</p>
+                    <p className="text-xs text-muted mt-1 line-clamp-2">{DISASTER_SCENARIOS[s].description}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onToggleSimulation}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded border transition-colors ${
+              isSimulating
+                ? 'border-safe/50 text-safe hover:bg-safe/10'
+                : 'border-muted text-muted hover:border-foreground hover:text-foreground'
+            }`}
+          >
+            {isSimulating ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            <span className="text-xs font-mono">{isSimulating ? 'LIVE' : 'PAUSED'}</span>
+          </button>
+          <button
+            onClick={onReset}
+            className="flex items-center gap-2 px-3 py-1.5 rounded border border-muted text-muted hover:border-foreground hover:text-foreground transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span className="text-xs font-mono">RESET</span>
+          </button>
+        </div>
+      </div>
+      <div className="px-6 pb-2">
+        <p className="text-xs text-muted font-mono">{scenarioInfo.description}</p>
+      </div>
+    </div>
+  );
+}
+
+// Settings Modal Component
+function SettingsModal({
+  isOpen,
+  onClose,
+  isDemoMode,
+  onToggleDemo,
+  isMuted,
+  onToggleMute,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  isDemoMode: boolean;
+  onToggleDemo: () => void;
+  isMuted: boolean;
+  onToggleMute: () => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-black border border-card-border rounded-lg w-full max-w-md"
+      >
+        <div className="p-6 border-b border-card-border flex items-center justify-between">
+          <h2 className="font-mono text-lg text-foreground glow-text">&gt; SETTINGS</h2>
+          <button onClick={onClose} className="p-2 rounded hover:bg-card-border/50 transition-colors">
+            <X className="w-5 h-5 text-muted" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Demo Mode Toggle */}
+          <div className="flex items-center justify-between p-4 rounded border border-card-border">
+            <div>
+              <p className="font-mono text-sm text-foreground">Demo Mode</p>
+              <p className="text-xs text-muted mt-1">Show simulated disaster data</p>
+            </div>
+            <button
+              onClick={onToggleDemo}
+              className={`w-12 h-6 rounded-full transition-colors relative ${isDemoMode ? 'bg-accent' : 'bg-card-border'}`}
+            >
+              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${isDemoMode ? 'left-7' : 'left-1'}`} />
+            </button>
+          </div>
+
+          {/* Sound Toggle */}
+          <div className="flex items-center justify-between p-4 rounded border border-card-border">
+            <div>
+              <p className="font-mono text-sm text-foreground">Alert Sounds</p>
+              <p className="text-xs text-muted mt-1">Play audio for new alerts</p>
+            </div>
+            <button
+              onClick={onToggleMute}
+              className={`w-12 h-6 rounded-full transition-colors relative ${!isMuted ? 'bg-accent' : 'bg-card-border'}`}
+            >
+              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${!isMuted ? 'left-7' : 'left-1'}`} />
+            </button>
+          </div>
+
+          {/* System Info */}
+          <div className="p-4 rounded border border-card-border space-y-2">
+            <p className="font-mono text-sm text-foreground mb-3">System Info</p>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted">Version</span>
+              <span className="font-mono text-foreground">2.0.0</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted">Mode</span>
+              <span className="font-mono text-foreground">{isDemoMode ? 'Demo' : 'Live'}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted">Connection</span>
+              <span className="font-mono text-safe">Connected</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-card-border">
+          <button
+            onClick={onClose}
+            className="w-full py-2 rounded border border-card-border hover:border-foreground text-foreground font-mono transition-colors"
+          >
+            [CLOSE]
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// Alert Details Modal Component
+function AlertDetailsModal({
+  alert,
+  onClose,
+  onAcknowledge,
+  onResolve,
+}: {
+  alert: SOSAlert | null;
+  onClose: () => void;
+  onAcknowledge: (id: string) => void;
+  onResolve: (id: string) => void;
+}) {
+  if (!alert) return null;
+
+  const location = parseLocation(alert.location);
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-black border border-card-border rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+      >
+        <div className="p-6 border-b border-card-border flex items-center justify-between sticky top-0 bg-black z-10">
+          <div>
+            <h2 className="font-mono text-lg text-foreground glow-text">&gt; ALERT_DETAILS</h2>
+            <p className="text-xs text-muted font-mono mt-1">{alert.message_id}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded hover:bg-card-border/50 transition-colors">
+            <X className="w-5 h-5 text-muted" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Status Badge */}
+          <div className="flex items-center gap-4">
+            <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+              alert.priority === 'critical' ? 'bg-critical text-white' :
+              alert.priority === 'high' ? 'bg-warning text-black' :
+              'bg-muted text-white'
+            }`}>
+              {alert.priority.toUpperCase()} - {getEmergencyLabel(alert.emergency_type)}
+            </span>
+            <span className={`px-3 py-1 rounded border text-xs font-mono ${
+              alert.status === 'active' ? 'border-critical text-critical' :
+              alert.status === 'acknowledged' ? 'border-warning text-warning' :
+              'border-safe text-safe'
+            }`}>
+              {alert.status.toUpperCase()}
+            </span>
+          </div>
+
+          {/* Message */}
+          {alert.message && (
+            <div className="p-4 rounded border border-card-border bg-card">
+              <p className="text-sm text-muted mb-1 font-mono">MESSAGE:</p>
+              <p className="text-foreground">{alert.message}</p>
+            </div>
+          )}
+
+          {/* Details Grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 rounded border border-card-border">
+              <p className="text-xs text-muted font-mono mb-1">LOCATION</p>
+              <p className="font-mono text-foreground">
+                {location ? `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 'Unknown'}
+              </p>
+              {alert.location_accuracy && (
+                <p className="text-xs text-muted mt-1">Accuracy: {alert.location_accuracy}m</p>
+              )}
+            </div>
+            <div className="p-4 rounded border border-card-border">
+              <p className="text-xs text-muted font-mono mb-1">DEVICE</p>
+              <p className="font-mono text-foreground">{alert.originator_device_id}</p>
+            </div>
+            <div className="p-4 rounded border border-card-border">
+              <p className="text-xs text-muted font-mono mb-1">RECEIVED</p>
+              <p className="font-mono text-foreground">{timeAgo(alert.received_at)}</p>
+              <p className="text-xs text-muted mt-1">{new Date(alert.received_at).toLocaleString()}</p>
+            </div>
+            <div className="p-4 rounded border border-card-border">
+              <p className="text-xs text-muted font-mono mb-1">DELIVERY</p>
+              <p className="font-mono text-foreground">
+                {alert.delivered_via === 'mesh_relay' ? `Mesh Relay (${alert.hop_count} hops)` : 'Direct'}
+              </p>
+            </div>
+          </div>
+
+          {/* Relay Chain */}
+          {alert.relay_chain && alert.relay_chain.length > 0 && (
+            <div className="p-4 rounded border border-card-border">
+              <p className="text-sm text-muted font-mono mb-3">RELAY_CHAIN:</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2 py-1 rounded bg-accent/20 text-accent text-xs font-mono">
+                  {alert.originator_device_id.slice(0, 8)}
+                </span>
+                {alert.relay_chain.map((relay, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-muted">→</span>
+                    <span className={`px-2 py-1 rounded text-xs font-mono ${
+                      relay.had_internet ? 'bg-safe/20 text-safe' : 'bg-card-border text-foreground'
+                    }`}>
+                      {relay.device_id.slice(0, 8)}
+                      {relay.had_internet && ' (internet)'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Resolution Notes */}
+          {alert.verification_notes && (
+            <div className="p-4 rounded border border-safe/30 bg-safe/10">
+              <p className="text-xs text-safe font-mono mb-1">RESOLUTION_NOTES:</p>
+              <p className="text-foreground">{alert.verification_notes}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="p-6 border-t border-card-border flex items-center gap-4">
+          {alert.status === 'active' && (
+            <button
+              onClick={() => { onAcknowledge(alert.id); onClose(); }}
+              className="flex-1 py-3 rounded bg-accent text-white font-mono hover:bg-accent/90 transition-colors"
+            >
+              [ACKNOWLEDGE]
+            </button>
+          )}
+          {alert.status === 'acknowledged' && (
+            <button
+              onClick={() => { onResolve(alert.id); onClose(); }}
+              className="flex-1 py-3 rounded bg-safe text-white font-mono hover:bg-safe/90 transition-colors"
+            >
+              [RESOLVE]
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="px-6 py-3 rounded border border-card-border text-foreground font-mono hover:border-foreground transition-colors"
+          >
+            [CLOSE]
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState('dashboard');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [detailsAlert, setDetailsAlert] = useState<SOSAlert | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const alertsPerPage = 25;
 
   // Handle sidebar navigation
   const handleNavClick = (navId: string) => {
@@ -696,22 +1060,49 @@ export default function AdminDashboard() {
   // Auth hook - redirects to login if not authenticated
   const { user, loading: authLoading, signOut } = useRequireAuth();
 
-  // Fetch real data from Supabase
-  const { alerts, loading: alertsLoading, refresh: refreshAlerts } = useActiveAlerts();
-  const { stats, loading: statsLoading, refresh: refreshStats } = useAlertStats();
-  const { devices } = useActiveDevices();
+  // Demo mode context
+  const demo = useDemo();
+
+  // Unified hooks that work with both demo and real data
+  const { alerts, loading: alertsLoading, refresh: refreshAlerts } = useUnifiedAlerts();
+  const { stats, loading: statsLoading, refresh: refreshStats } = useUnifiedStats();
+  const { devices } = useUnifiedDevices();
+  const { allAlerts } = useAllAlerts();
+  const { acknowledgeAlert, resolveAlert } = useAlertActions();
+
+  // Live simulation for demo mode
+  const { isRunning: isSimulating, toggle: toggleSimulation } = useLiveSimulation();
 
   // Alert sound notifications
-  const { isMuted, toggleMute, testSound, isSupported: soundSupported } = useAlertSoundNotifications(
+  const { isMuted, toggleMute, isSupported: soundSupported } = useAlertSoundNotifications(
     alerts,
     { enabled: true, volume: 0.5 }
+  );
+
+  // Filter alerts by search
+  const filteredAlerts = alerts.filter(alert => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      alert.message_id.toLowerCase().includes(query) ||
+      alert.originator_device_id.toLowerCase().includes(query) ||
+      alert.emergency_type.toLowerCase().includes(query) ||
+      (alert.message && alert.message.toLowerCase().includes(query))
+    );
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredAlerts.length / alertsPerPage);
+  const paginatedAlerts = filteredAlerts.slice(
+    (currentPage - 1) * alertsPerPage,
+    currentPage * alertsPerPage
   );
 
   // Handle alert actions
   const handleAcknowledge = async (alertId: string) => {
     try {
       await acknowledgeAlert(alertId, user?.id || 'admin');
-      refreshAlerts();
+      if (!demo.isDemoMode) refreshAlerts();
     } catch (error) {
       console.error('Failed to acknowledge alert:', error);
     }
@@ -720,15 +1111,19 @@ export default function AdminDashboard() {
   const handleResolve = async (alertId: string) => {
     try {
       await resolveAlert(alertId, 'Resolved by admin');
-      refreshAlerts();
+      if (!demo.isDemoMode) refreshAlerts();
     } catch (error) {
       console.error('Failed to resolve alert:', error);
     }
   };
 
   const handleRefresh = () => {
-    refreshAlerts();
-    refreshStats();
+    if (demo.isDemoMode) {
+      demo.resetDemo();
+    } else {
+      refreshAlerts();
+      refreshStats();
+    }
   };
 
   // Show loading while checking auth
@@ -835,8 +1230,26 @@ export default function AdminDashboard() {
                 <RefreshCw className={`w-4 h-4 ${alertsLoading ? 'animate-spin' : ''}`} />
                 <span className="text-sm hidden sm:inline">[SYNC]</span>
               </button>
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="p-2 rounded border border-card-border hover:border-foreground transition-colors"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5 text-foreground" />
+              </button>
             </div>
           </div>
+
+          {/* Demo Mode Banner */}
+          {demo.isDemoMode && (
+            <DemoModeBanner
+              scenario={demo.scenario}
+              onScenarioChange={demo.setScenario}
+              onReset={demo.resetDemo}
+              isSimulating={isSimulating}
+              onToggleSimulation={toggleSimulation}
+            />
+          )}
 
           {/* Alert Banner - only show if there are critical alerts */}
           {alerts.some(a => a.priority === 'critical' && a.status === 'active') && (
@@ -924,11 +1337,37 @@ export default function AdminDashboard() {
           {viewMode === 'table' && (
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
+                {/* Search Bar */}
+                <div className="mb-4 flex items-center gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                      placeholder="Search alerts by ID, device, type..."
+                      className="w-full pl-10 pr-4 py-2 rounded border border-card-border bg-black text-foreground font-mono text-sm placeholder:text-muted focus:border-accent focus:outline-none transition-colors"
+                    />
+                  </div>
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="px-3 py-2 rounded border border-card-border text-muted hover:text-foreground hover:border-foreground transition-colors text-sm font-mono"
+                    >
+                      [CLEAR]
+                    </button>
+                  )}
+                </div>
                 <SOSTable
-                  alerts={alerts}
+                  alerts={paginatedAlerts}
                   loading={alertsLoading}
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
+                  onRowClick={setDetailsAlert}
+                  totalCount={filteredAlerts.length}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
                 />
               </div>
               <div className="space-y-6">
@@ -943,7 +1382,7 @@ export default function AdminDashboard() {
                 <AlertMap
                   alerts={alerts}
                   selectedAlertId={selectedAlertId}
-                  onAlertClick={(alert) => setSelectedAlertId(alert.id)}
+                  onAlertClick={(alert) => { setSelectedAlertId(alert.id); setDetailsAlert(alert); }}
                   className="h-[600px]"
                 />
               </div>
@@ -959,17 +1398,22 @@ export default function AdminDashboard() {
               <AlertMap
                 alerts={alerts}
                 selectedAlertId={selectedAlertId}
-                onAlertClick={(alert) => setSelectedAlertId(alert.id)}
+                onAlertClick={(alert) => { setSelectedAlertId(alert.id); setDetailsAlert(alert); }}
                 className="h-[400px]"
               />
               {/* Table below */}
               <div className="grid lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                   <SOSTable
-                    alerts={alerts}
+                    alerts={paginatedAlerts}
                     loading={alertsLoading}
                     onAcknowledge={handleAcknowledge}
                     onResolve={handleResolve}
+                    onRowClick={setDetailsAlert}
+                    totalCount={filteredAlerts.length}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
                   />
                 </div>
                 <div className="space-y-6">
@@ -994,7 +1438,7 @@ export default function AdminDashboard() {
           {viewMode === 'analytics' && (
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
-                <AnalyticsDashboard alerts={alerts} stats={stats} />
+                <AnalyticsDashboard alerts={demo.isDemoMode ? allAlerts : alerts} stats={stats} />
               </div>
               <div className="space-y-6">
                 <NetworkZones stats={stats} alerts={alerts} />
@@ -1010,6 +1454,23 @@ export default function AdminDashboard() {
           </div>
         </div>
       </main>
+
+      {/* Modals */}
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        isDemoMode={demo.isDemoMode}
+        onToggleDemo={demo.toggleDemoMode}
+        isMuted={isMuted}
+        onToggleMute={toggleMute}
+      />
+
+      <AlertDetailsModal
+        alert={detailsAlert}
+        onClose={() => setDetailsAlert(null)}
+        onAcknowledge={handleAcknowledge}
+        onResolve={handleResolve}
+      />
     </div>
   );
 }

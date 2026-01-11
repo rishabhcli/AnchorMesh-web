@@ -103,26 +103,13 @@ export function useAlertSound(options: AlertSoundOptions = {}) {
     });
   }, [enabled, isMuted, criticalOnly, initAudio, playTone]);
 
-  // Play critical alert with speech synthesis
-  const playCriticalAlert = useCallback((message?: string) => {
+  // Play critical alert (speech disabled)
+  const playCriticalAlert = useCallback((_message?: string) => {
     if (!enabled || isMuted) return;
 
-    // Play tone
+    // Play tone only
     playAlertSound('critical');
-
-    // Speak the message using Web Speech API
-    if (message && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.rate = 1.2;
-      utterance.pitch = 1;
-      utterance.volume = volume;
-
-      // Wait for tone to finish, then speak
-      setTimeout(() => {
-        window.speechSynthesis.speak(utterance);
-      }, 1000);
-    }
-  }, [enabled, isMuted, volume, playAlertSound]);
+  }, [enabled, isMuted, playAlertSound]);
 
   // Toggle mute
   const toggleMute = useCallback(() => {

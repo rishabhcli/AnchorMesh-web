@@ -9,8 +9,10 @@ import {
   AlertTriangle,
   Clock,
   Users,
+  Download,
 } from 'lucide-react';
 import { SOSAlert, AlertStats, EmergencyType, AlertPriority } from '@/lib/supabase';
+import { filterAlertsByTimeRange } from '@/hooks/useDemoData';
 
 interface AnalyticsDashboardProps {
   alerts: SOSAlert[];
@@ -162,18 +164,29 @@ function AlertTimeline({ alerts }: { alerts: SOSAlert[] }) {
 export default function AnalyticsDashboard({ alerts, stats, className = '' }: AnalyticsDashboardProps) {
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
 
-  // Calculate analytics data
+  // Filter alerts by selected time range
+  const filteredAlerts = useMemo(() => {
+    return filterAlertsByTimeRange(alerts, timeRange);
+  }, [alerts, timeRange]);
+
+  // Calculate analytics data from filtered alerts
   const analyticsData = useMemo(() => {
-    // Alerts by type
-    const byType = stats?.alerts_by_type || {};
+    // Alerts by type (calculated from filtered alerts)
+    const byType: Record<string, number> = {};
+    filteredAlerts.forEach(alert => {
+      byType[alert.emergency_type] = (byType[alert.emergency_type] || 0) + 1;
+    });
     const typeData = Object.entries(byType).map(([key, value]) => ({
       label: key.replace('_', ' '),
       value: value as number,
       key,
     }));
 
-    // Alerts by priority
-    const byPriority = stats?.alerts_by_priority || {};
+    // Alerts by priority (calculated from filtered alerts)
+    const byPriority: Record<string, number> = {};
+    filteredAlerts.forEach(alert => {
+      byPriority[alert.priority] = (byPriority[alert.priority] || 0) + 1;
+    });
     const priorityData = Object.entries(byPriority).map(([key, value]) => ({
       label: key,
       value: value as number,
@@ -181,7 +194,7 @@ export default function AnalyticsDashboard({ alerts, stats, className = '' }: An
     }));
 
     // Calculate response metrics
-    const acknowledgedAlerts = alerts.filter(a => a.acknowledged_at);
+    const acknowledgedAlerts = filteredAlerts.filter(a => a.acknowledged_at);
     const avgResponseTime = acknowledgedAlerts.length > 0
       ? acknowledgedAlerts.reduce((sum, alert) => {
           const received = new Date(alert.received_at).getTime();
@@ -191,9 +204,15 @@ export default function AnalyticsDashboard({ alerts, stats, className = '' }: An
       : 0;
 
     // Mesh relay stats
-    const relayedAlerts = alerts.filter(a => a.delivered_via === 'mesh_relay');
+    const relayedAlerts = filteredAlerts.filter(a => a.delivered_via === 'mesh_relay');
     const avgHops = relayedAlerts.length > 0
       ? relayedAlerts.reduce((sum, a) => sum + a.hop_count, 0) / relayedAlerts.length
+      : 0;
+
+    // Resolution rate
+    const resolvedAlerts = filteredAlerts.filter(a => a.status === 'resolved');
+    const resolutionRate = filteredAlerts.length > 0
+      ? Math.round((resolvedAlerts.length / filteredAlerts.length) * 100)
       : 0;
 
     return {
@@ -202,9 +221,36 @@ export default function AnalyticsDashboard({ alerts, stats, className = '' }: An
       avgResponseTime: Math.round(avgResponseTime * 10) / 10,
       relayedCount: relayedAlerts.length,
       avgHops: Math.round(avgHops * 10) / 10,
-      totalAlerts: alerts.length,
+      totalAlerts: filteredAlerts.length,
+      resolutionRate,
+      resolvedCount: resolvedAlerts.length,
     };
-  }, [alerts, stats]);
+  }, [filteredAlerts]);
+
+  // Export alerts to CSV
+  const handleExportCSV = () => {
+    const headers = ['Message ID', 'Type', 'Priority', 'Status', 'Location', 'Device', 'Hops', 'Received', 'Message'];
+    const rows = filteredAlerts.map(alert => [
+      alert.message_id,
+      alert.emergency_type,
+      alert.priority,
+      alert.status,
+      alert.location,
+      alert.originator_device_id,
+      alert.hop_count.toString(),
+      new Date(alert.received_at).toISOString(),
+      alert.message || '',
+    ]);
+
+    const csv = [headers.join(','), ...rows.map(row => row.map(cell => `"${cell}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `alerts-${timeRange}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Color maps - Matrix style (white)
   const typeColorMap: Record<string, string> = {
@@ -246,23 +292,33 @@ export default function AnalyticsDashboard({ alerts, stats, className = '' }: An
             </div>
             <div>
               <h3 className="font-mono text-lg text-foreground glow-text uppercase tracking-wider">&gt; ANALYTICS</h3>
-              <p className="text-sm text-muted font-mono">// Alert statistics and trends</p>
+              <p className="text-sm text-muted font-mono">// {analyticsData.totalAlerts} alerts in {timeRange}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1 border border-card-border rounded p-1">
-            {(['24h', '7d', '30d'] as const).map((range) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
-                  timeRange === range
-                    ? 'border border-foreground text-foreground'
-                    : 'text-muted hover:text-foreground'
-                }`}
-              >
-                [{range.toUpperCase()}]
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 border border-card-border rounded p-1">
+              {(['24h', '7d', '30d'] as const).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
+                    timeRange === range
+                      ? 'border border-foreground text-foreground'
+                      : 'text-muted hover:text-foreground'
+                  }`}
+                >
+                  [{range.toUpperCase()}]
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 px-3 py-1.5 rounded border border-card-border text-muted hover:text-foreground hover:border-foreground transition-colors text-xs font-mono"
+              title="Export to CSV"
+            >
+              <Download className="w-4 h-4" />
+              [EXPORT]
+            </button>
           </div>
         </div>
       </div>
@@ -339,10 +395,26 @@ export default function AnalyticsDashboard({ alerts, stats, className = '' }: An
             <Clock className="w-4 h-4" />
             &gt; TIMELINE_12H
           </h4>
-          <AlertTimeline alerts={alerts} />
+          <AlertTimeline alerts={filteredAlerts} />
           <div className="flex justify-between text-xs text-muted mt-2 font-mono">
             <span>[-12H]</span>
             <span>[NOW]</span>
+          </div>
+        </div>
+
+        {/* Additional Stats */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-black rounded border border-card-border p-4 text-center hover:border-foreground transition-colors">
+            <p className="text-xs text-muted font-mono mb-2">RESOLUTION_RATE</p>
+            <p className="text-3xl font-mono text-foreground glow-text">{analyticsData.resolutionRate}%</p>
+            <p className="text-xs text-muted font-mono mt-1">{analyticsData.resolvedCount} resolved</p>
+          </div>
+          <div className="bg-black rounded border border-card-border p-4 text-center hover:border-foreground transition-colors">
+            <p className="text-xs text-muted font-mono mb-2">MESH_EFFICIENCY</p>
+            <p className="text-3xl font-mono text-foreground glow-text">
+              {analyticsData.totalAlerts > 0 ? Math.round((analyticsData.relayedCount / analyticsData.totalAlerts) * 100) : 0}%
+            </p>
+            <p className="text-xs text-muted font-mono mt-1">via mesh relay</p>
           </div>
         </div>
       </div>
