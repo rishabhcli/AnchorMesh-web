@@ -127,4 +127,8 @@ lib/
 
 ## License
 
-This project was created for the Alameda County Hackathon 2025.
+Copyright (c) 2025 AnchorMesh Team. All Rights Reserved.
+
+This is proprietary software. No copying, modification, distribution, or resubmission to hackathons is permitted without explicit written permission. See [LICENSE](./LICENSE) for full terms.
+
+Originally created for the Alameda County Hackathon 2025.
